@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import LogoMain from "../assets/logo_main.png";
 import LogoNoText from "../assets/logo_notext.png";
 
@@ -25,9 +26,12 @@ export default function SignIn() {
                 <button className="px-4 py-1 rounded-full text-sm text-gray-200 bg-[#333]">
                   SIGN IN
                 </button>
-                <button className="px-4 py-1 rounded-full text-sm text-gray-400">
+                <Link
+                  to="/signup"
+                  className="px-4 py-1 rounded-full text-sm text-gray-400 hover:text-gray-200"
+                >
                   SIGN UP
-                </button>
+                </Link>
               </div>
 
               <div className="w-full mt-3">
@@ -48,7 +52,7 @@ export default function SignIn() {
                   onChange={(e) => setPassword(e.target.value)}
                   type="password"
                   placeholder="password"
-                  className="w-full bg-[#2a2a2a] rounded-md px-4 py-3 placeholder-gray-400 text-gray-100 outline-none focus:ring-2 focus:ring-[var(--color-sentraYellow)]"
+                  className="w-full bg-[#2a2a2a] rounded-md px-4 py-3 placeholder-gray-400 text-gray-100 outline-none focus:ring-2 focus:ring-sentraYellow"
                 />
               </div>
 
@@ -83,7 +87,7 @@ export default function SignIn() {
 
               <p className="text-xs text-gray-500 mt-3">
                 Forgot your password?{" "}
-                <button className="text-[var(--color-sentraYellow)]">
+                <button className="text-sentraYellow">
                   Reset
                 </button>
               </p>

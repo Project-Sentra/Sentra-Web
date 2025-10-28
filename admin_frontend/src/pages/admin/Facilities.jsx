@@ -1,0 +1,35 @@
+import React, { useMemo } from "react";
+import FacilityCard from "../../components/FacilityCard";
+
+export default function Facilities() {
+  const facilities = useMemo(
+    () => [
+      { id: 1, name: "Monte Carlo", capacityPct: 42, revenueLKR: 53000, status: "Active" },
+      { id: 2, name: "Downtown parking", capacityPct: 65, revenueLKR: 53000, status: "Active" },
+    ],
+    []
+  );
+
+  return (
+    <div className="min-h-screen bg-sentraBlack text-white">
+      <header className="max-w-6xl mx-auto pt-8 px-6">
+  <button className="w-9 h-9 grid place-items-center bg-sentraGray rounded-md text-sentraYellow">≡</button>
+        <h1 className="mt-8 text-6xl font-bold text-sentraYellow">Parking Facilities</h1>
+        <div className="h-px bg-sentraYellow mt-6" />
+        <div className="mt-6">
+          <input
+            placeholder="search for a parking facility"
+            className="w-full rounded-full bg-[#1a1a1a] px-6 py-4 text-gray-300 placeholder-gray-500 outline-none focus:ring-2 focus:ring-sentraYellow"
+          />
+        </div>
+        <div className="mt-6 text-gray-400">Recent</div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-6 mt-4 grid grid-cols-1 sm:grid-cols-2 gap-6 pb-16">
+        {facilities.map((f) => (
+          <FacilityCard key={f.id} facility={f} />
+        ))}
+      </main>
+    </div>
+  );
+}
