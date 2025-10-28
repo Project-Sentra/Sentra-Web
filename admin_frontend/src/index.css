@@ -1,12 +1,21 @@
 @import "tailwindcss";
+
+@import url("https://fonts.googleapis.com/css2?family=Lusitana:wght@400;700&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Orbitron:wght@400..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Yaldevi:wght@200..700&display=swap");
+
+@theme {
+  --color-sentraBlack: #111111;
+  --color-sentraGray: #191919;
+  --color-sentraYellow: #e2e600;
+
+  --font-poppins: "Poppins", sans-serif;
+}
+
 /* 1. CSS Reset */
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
-/* 2. Base settings */
+/* 2. Base settings
 html,
 body,
 #root {
@@ -20,36 +29,35 @@ body {
   color: #111827;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
+} */
 
 /* 3. Images and media */
-img,
+/* img,
 picture,
 video,
 canvas,
 svg {
   display: block;
   max-width: 100%;
-}
+} */
 
 /* 4. Form elements */
-input,
+/* input,
 button,
 textarea,
 select {
   font: inherit;
   color: inherit;
-}
+} */
 
 /* 5. Links and lists */
-a {
+/* a {
   color: inherit;
   text-decoration: none;
-}
-
+} */
+/* 
 ul,
 ol {
   list-style: none;
   padding: 0;
-}
-
+} */
