@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from datetime import datetime
 import os
 
 # ==========================================
@@ -37,6 +38,17 @@ class ParkingSpot(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     spot_name = db.Column(db.String(10), unique=True, nullable=False) # (Example: A1, A2)
     is_occupied = db.Column(db.Boolean, default=False)
+
+# ParkingSession Table - In/Out log with timestamps
+class ParkingSession(db.Model):
+    __tablename__ = 'parking_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    plate_number = db.Column(db.String(20), nullable=False)
+    spot_name = db.Column(db.String(10), nullable=False)
+    entry_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    exit_time = db.Column(db.DateTime)
+    duration_minutes = db.Column(db.Integer)
+    amount_lkr = db.Column(db.Integer)
 
 # ==========================================
 # Import Routes (APIs) - වැදගත්ම කොටස

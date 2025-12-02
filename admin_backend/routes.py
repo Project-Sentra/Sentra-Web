@@ -1,6 +1,7 @@
 from flask import request, jsonify
-from app import app, db, User, ParkingSpot # Importing app instance, database, and models
-import uuid # For generating unique IDs if needed (currently unused but good practice)
+from datetime import datetime
+from math import ceil
+from app import app, db, User, ParkingSpot, ParkingSession # Importing app instance, database, and models
 
 # ==========================================
 # User Registration (Sign Up) API
@@ -97,3 +98,109 @@ def init_spots():
     
     db.session.commit()
     return jsonify({'message': '32 Parking spots created successfully!'}), 201
+
+# ... (කලින් තිබුන කේතයන් එලෙසම තියෙන්න දෙන්න)
+
+# ==========================================
+# Vehicle Entry Simulation API (LPR Camera එකෙන් දත්ත එන විදිය)
+# ==========================================
+@app.route('/api/vehicle/entry', methods=['POST'])
+def vehicle_entry():
+    data = request.get_json()
+    plate_number = data.get('plate_number')
+
+    if not plate_number:
+        return jsonify({'message': 'License plate number is required!'}), 400
+
+    # Prevent duplicate active sessions for same plate
+    active_session = ParkingSession.query.filter_by(plate_number=plate_number, exit_time=None).first()
+    if active_session:
+        return jsonify({'message': f'Vehicle {plate_number} is already parked at {active_session.spot_name}'}), 409
+
+    # 1. පළමු නිදහස් (Free) පාර්කින් ස්ථානය සොයාගැනීම
+    # is_occupied = False වන පළමු spot එක ගන්නවා
+    free_spot = ParkingSpot.query.filter_by(is_occupied=False).order_by(ParkingSpot.id).first()
+
+    if free_spot:
+        # 2. එම ස්ථානය Occupied ලෙස වෙනස් කිරීම
+        free_spot.is_occupied = True
+        new_session = ParkingSession(
+            plate_number=plate_number,
+            spot_name=free_spot.spot_name,
+            entry_time=datetime.utcnow()
+        )
+        db.session.add(new_session)
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'Vehicle {plate_number} parked at {free_spot.spot_name}',
+            'spot': free_spot.spot_name,
+            'status': 'assigned'
+        }), 200
+    else:
+        # ඉඩ නැත්නම්
+        return jsonify({'message': 'Parking is full!'}), 404
+
+# ==========================================
+# Vehicle Exit Simulation API (වාහනය පිටවීම)
+# ==========================================
+@app.route('/api/vehicle/exit', methods=['POST'])
+def vehicle_exit():
+    data = request.get_json() or {}
+    plate_number = data.get('plate_number')
+
+    if not plate_number:
+        return jsonify({'message': 'License plate number is required!'}), 400
+
+    session = (ParkingSession.query
+               .filter_by(plate_number=plate_number, exit_time=None)
+               .order_by(ParkingSession.entry_time.desc())
+               .first())
+
+    if not session:
+        return jsonify({'message': f'No active session found for {plate_number}'}), 404
+
+    spot = ParkingSpot.query.filter_by(spot_name=session.spot_name).first()
+    if spot:
+        spot.is_occupied = False
+
+    exit_time = datetime.utcnow()
+    duration_minutes = int((exit_time - session.entry_time).total_seconds() // 60)
+    billed_hours = max(1, ceil(duration_minutes / 60))
+    amount_lkr = billed_hours * 150
+
+    session.exit_time = exit_time
+    session.duration_minutes = duration_minutes
+    session.amount_lkr = amount_lkr
+
+    db.session.commit()
+
+    return jsonify({
+        'message': f'Spot {session.spot_name} is now free!',
+        'duration_minutes': duration_minutes,
+        'amount_charged': amount_lkr
+    }), 200
+
+# ==========================================
+# Parking Logs API
+# ==========================================
+@app.route('/api/logs', methods=['GET'])
+def get_logs():
+    sessions = (ParkingSession.query
+                .order_by(ParkingSession.entry_time.desc())
+                .limit(50)
+                .all())
+
+    output = []
+    for s in sessions:
+        output.append({
+            'id': s.id,
+            'plate_number': s.plate_number,
+            'spot': s.spot_name,
+            'entry_time': s.entry_time.isoformat() if s.entry_time else None,
+            'exit_time': s.exit_time.isoformat() if s.exit_time else None,
+            'duration_minutes': s.duration_minutes,
+            'amount_lkr': s.amount_lkr,
+        })
+
+    return jsonify({'logs': output}), 200

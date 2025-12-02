@@ -1,27 +1,86 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import Sidebar from "../../components/Sidebar";
 import ParkingMap from "../../components/ParkingMap";
 
-const rows = Array.from({ length: 18 }, () => ({
-  plate: "CBH 5124",
-  entry: "00.23",
-  exit: "06.11",
-  duration: "06.11",
-  amount: "1090.00",
-}));
+const API_BASE = "http://127.0.0.1:5000";
+
+const formatTime = (value) =>
+  value ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+
+const formatDuration = (minutes) => {
+  if (minutes == null) return "—";
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hrs === 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+};
 
 export default function InOut() {
+  const [logs, setLogs] = useState([]);
+  const [spots, setSpots] = useState([]);
+  const [error, setError] = useState(null);
+  const [loadingLogs, setLoadingLogs] = useState(true);
+  const [loadingSpots, setLoadingSpots] = useState(true);
+
+  async function fetchLogs() {
+    try {
+      const { data } = await axios.get(`${API_BASE}/api/logs`);
+      setLogs(data?.logs ?? []);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to fetch logs", err);
+      setError("Cannot reach backend. Is Flask running on port 5000?");
+    } finally {
+      setLoadingLogs(false);
+    }
+  }
+
+  async function fetchSpots() {
+    try {
+      const { data } = await axios.get(`${API_BASE}/api/spots`);
+      setSpots(data?.spots ?? []);
+    } catch (err) {
+      console.error("Failed to fetch spots", err);
+      setError("Cannot reach backend. Is Flask running on port 5000?");
+    } finally {
+      setLoadingSpots(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchLogs();
+    fetchSpots();
+    const id = setInterval(() => {
+      fetchLogs();
+      fetchSpots();
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const busyIndices = spots
+    .filter((s) => s.is_occupied)
+    .map((s) => s.id - 1);
+
   return (
     <div className="min-h-screen bg-sentraBlack text-white flex">
       <Sidebar facilityName="Downtown Parking" />
 
       <main className="flex-1 p-8">
+        {error && (
+          <div className="bg-red-500/10 border border-red-500 text-red-500 p-4 rounded-xl mb-6 text-sm">
+            ⚠️ {error}
+          </div>
+        )}
+
         <div className="max-w-3xl">
           <div className="bg-[#171717] border border-[#232323] rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="text-sentraYellow">
                 <tr className="text-left">
                   <th className="px-6 py-3">License Plate Number</th>
+                  <th className="px-6 py-3">Spot</th>
                   <th className="px-6 py-3">Time of Entry</th>
                   <th className="px-6 py-3">Time of Exit</th>
                   <th className="px-6 py-3">Duration</th>
@@ -29,15 +88,33 @@ export default function InOut() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i} className="odd:bg-[#151515] even:bg-[#181818] border-t border-[#222]">
-                    <td className="px-6 py-3 text-gray-200">{r.plate}</td>
-                    <td className="px-6 py-3 text-gray-400">{r.entry}</td>
-                    <td className="px-6 py-3 text-gray-400">{r.exit}</td>
-                    <td className="px-6 py-3 text-gray-400">{r.duration}</td>
-                    <td className="px-6 py-3 text-gray-400">{r.amount}</td>
+                {loadingLogs ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center text-gray-500 animate-pulse">
+                      Loading vehicle activity...
+                    </td>
                   </tr>
-                ))}
+                ) : logs.length ? (
+                  logs.map((log) => (
+                    <tr key={log.id} className="odd:bg-[#151515] even:bg-[#181818] border-t border-[#222]">
+                      <td className="px-6 py-3 text-gray-200 font-medium">{log.plate_number}</td>
+                      <td className="px-6 py-3 text-gray-400">{log.spot}</td>
+                      <td className="px-6 py-3 text-gray-400">{formatTime(log.entry_time)}</td>
+                      <td className="px-6 py-3 text-gray-400">{formatTime(log.exit_time)}</td>
+                      <td className="px-6 py-3 text-gray-400">{formatDuration(log.duration_minutes)}</td>
+                      <td className="px-6 py-3 text-gray-300">
+                        {log.amount_lkr ? `LKR ${log.amount_lkr.toLocaleString()}` : "—"}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center text-yellow-500">
+                      No activity yet. Use Postman to call <strong>/api/vehicle/entry</strong> and
+                      <strong> /api/vehicle/exit</strong>.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -45,7 +122,10 @@ export default function InOut() {
       </main>
 
       <div className="hidden lg:block w-[420px] p-8">
-        <ParkingMap rows={8} cols={4} busyIndices={[13,14,28,29]} />
+        <ParkingMap rows={4} cols={8} busyIndices={busyIndices} />
+        {loadingSpots && (
+          <p className="text-center text-gray-500 text-sm mt-3">Updating map…</p>
+        )}
       </div>
     </div>
   );
