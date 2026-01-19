@@ -1,7 +1,11 @@
 from flask import request, jsonify
 from datetime import datetime
 from math import ceil
-from app import app, db, User, ParkingSpot, ParkingSession # Importing app instance, database, and models
+import httpx
+from app import app, db, User, ParkingSpot, ParkingSession, Camera, DetectionLog # Importing app instance, database, and models
+
+# LPR Service Configuration
+LPR_SERVICE_URL = "http://127.0.0.1:5001"
 
 # ==========================================
 # User Registration (Sign Up) API
@@ -204,3 +208,179 @@ def get_logs():
         })
 
     return jsonify({'logs': output}), 200
+
+
+# ==========================================
+# LPR Service Integration APIs
+# ==========================================
+
+@app.route('/api/lpr/status', methods=['GET'])
+def lpr_status():
+    """Check if the SentraAI LPR service is connected and running"""
+    try:
+        response = httpx.get(f"{LPR_SERVICE_URL}/api/health", timeout=5.0)
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                'connected': True,
+                'service': data.get('service', 'SentraAI'),
+                'version': data.get('version', 'unknown'),
+                'cameras_active': data.get('cameras_active', 0),
+                'camera_mode': data.get('camera_mode', 'unknown')
+            }), 200
+        else:
+            return jsonify({'connected': False, 'message': 'Service unavailable'}), 503
+    except Exception as e:
+        return jsonify({'connected': False, 'message': str(e)}), 503
+
+
+@app.route('/api/cameras', methods=['GET'])
+def get_cameras():
+    """Get all configured cameras"""
+    cameras = Camera.query.order_by(Camera.id).all()
+    output = []
+    for cam in cameras:
+        output.append({
+            'id': cam.id,
+            'camera_id': cam.camera_id,
+            'name': cam.name,
+            'type': cam.camera_type,
+            'source_url': cam.source_url,
+            'is_active': cam.is_active
+        })
+    return jsonify({'cameras': output}), 200
+
+
+@app.route('/api/cameras', methods=['POST'])
+def add_camera():
+    """Add a new camera configuration"""
+    data = request.get_json()
+
+    camera_id = data.get('camera_id')
+    name = data.get('name')
+    camera_type = data.get('type')  # 'entry' or 'exit'
+    source_url = data.get('source_url', '')
+
+    if not all([camera_id, name, camera_type]):
+        return jsonify({'message': 'camera_id, name, and type are required'}), 400
+
+    if camera_type not in ['entry', 'exit']:
+        return jsonify({'message': 'type must be "entry" or "exit"'}), 400
+
+    existing = Camera.query.filter_by(camera_id=camera_id).first()
+    if existing:
+        return jsonify({'message': f'Camera {camera_id} already exists'}), 409
+
+    new_camera = Camera(
+        camera_id=camera_id,
+        name=name,
+        camera_type=camera_type,
+        source_url=source_url,
+        is_active=True
+    )
+    db.session.add(new_camera)
+    db.session.commit()
+
+    return jsonify({'message': f'Camera {name} added successfully', 'id': new_camera.id}), 201
+
+
+@app.route('/api/cameras/<camera_id>', methods=['DELETE'])
+def delete_camera(camera_id):
+    """Delete a camera configuration"""
+    camera = Camera.query.filter_by(camera_id=camera_id).first()
+    if not camera:
+        return jsonify({'message': f'Camera {camera_id} not found'}), 404
+
+    db.session.delete(camera)
+    db.session.commit()
+
+    return jsonify({'message': f'Camera {camera_id} deleted'}), 200
+
+
+@app.route('/api/cameras/init', methods=['POST'])
+def init_cameras():
+    """Initialize default entry and exit cameras"""
+    if Camera.query.first():
+        return jsonify({'message': 'Cameras already initialized'}), 400
+
+    cameras = [
+        Camera(camera_id='entry_cam_01', name='Entry Gate 01', camera_type='entry', is_active=True),
+        Camera(camera_id='exit_cam_01', name='Exit Gate 01', camera_type='exit', is_active=True),
+    ]
+
+    for cam in cameras:
+        db.session.add(cam)
+
+    db.session.commit()
+    return jsonify({'message': '2 cameras initialized successfully'}), 201
+
+
+@app.route('/api/detection-logs', methods=['GET'])
+def get_detection_logs():
+    """Get recent plate detection logs"""
+    limit = request.args.get('limit', 50, type=int)
+
+    logs = (DetectionLog.query
+            .order_by(DetectionLog.detected_at.desc())
+            .limit(limit)
+            .all())
+
+    output = []
+    for log in logs:
+        output.append({
+            'id': log.id,
+            'camera_id': log.camera_id,
+            'plate_number': log.plate_number,
+            'confidence': log.confidence,
+            'detected_at': log.detected_at.isoformat(),
+            'action_taken': log.action_taken,
+            'vehicle_class': log.vehicle_class
+        })
+
+    return jsonify({'logs': output}), 200
+
+
+@app.route('/api/detection-logs', methods=['POST'])
+def add_detection_log():
+    """Log a new plate detection (called by LPR service)"""
+    data = request.get_json()
+
+    camera_id = data.get('camera_id')
+    plate_number = data.get('plate_number')
+    confidence = data.get('confidence', 0.0)
+    action_taken = data.get('action_taken', 'pending')
+    vehicle_class = data.get('vehicle_class')
+
+    if not all([camera_id, plate_number]):
+        return jsonify({'message': 'camera_id and plate_number are required'}), 400
+
+    new_log = DetectionLog(
+        camera_id=camera_id,
+        plate_number=plate_number,
+        confidence=confidence,
+        action_taken=action_taken,
+        vehicle_class=vehicle_class
+    )
+    db.session.add(new_log)
+    db.session.commit()
+
+    return jsonify({'message': 'Detection logged', 'id': new_log.id}), 201
+
+
+@app.route('/api/detection-logs/<int:log_id>/action', methods=['PATCH'])
+def update_detection_action(log_id):
+    """Update the action taken for a detection log"""
+    data = request.get_json()
+    action = data.get('action')
+
+    if action not in ['entry', 'exit', 'ignored']:
+        return jsonify({'message': 'action must be entry, exit, or ignored'}), 400
+
+    log = DetectionLog.query.get(log_id)
+    if not log:
+        return jsonify({'message': 'Detection log not found'}), 404
+
+    log.action_taken = action
+    db.session.commit()
+
+    return jsonify({'message': f'Action updated to {action}'}), 200

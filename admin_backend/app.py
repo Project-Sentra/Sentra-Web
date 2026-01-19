@@ -50,6 +50,34 @@ class ParkingSession(db.Model):
     duration_minutes = db.Column(db.Integer)
     amount_lkr = db.Column(db.Integer)
 
+# Camera Table - LPR Camera configuration
+class Camera(db.Model):
+    __tablename__ = 'cameras'
+    id = db.Column(db.Integer, primary_key=True)
+    camera_id = db.Column(db.String(50), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    camera_type = db.Column(db.String(20), nullable=False)  # 'entry' or 'exit'
+    source_url = db.Column(db.String(255))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Camera {self.name}>'
+
+# DetectionLog Table - LPR detection history
+class DetectionLog(db.Model):
+    __tablename__ = 'detection_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    camera_id = db.Column(db.String(50), nullable=False)
+    plate_number = db.Column(db.String(20), nullable=False)
+    confidence = db.Column(db.Float, nullable=False)
+    detected_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    action_taken = db.Column(db.String(20))  # 'entry', 'exit', 'ignored', 'pending'
+    vehicle_class = db.Column(db.String(20))
+
+    def __repr__(self):
+        return f'<DetectionLog {self.plate_number} @ {self.detected_at}>'
+
 # ==========================================
 # Import Routes (APIs) - වැදගත්ම කොටස
 # ==========================================
