@@ -1,99 +1,34 @@
-from flask import Flask, jsonify, request
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask
 from flask_cors import CORS
-from datetime import datetime
+from supabase import create_client, Client
+from dotenv import load_dotenv
 import os
+
+# Load environment variables
+load_dotenv()
 
 # ==========================================
 # Configurations & Initialization
 # ==========================================
 app = Flask(__name__)
-CORS(app) # Frontend එකට සම්බන්ධ වෙන්න ඉඩ දෙනවා
+CORS(app)
 
-# Database Configuration
-# Mac වල Postgres.app සමඟ password අවශ්‍ය නොවන අවස්ථා සඳහා
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://localhost/sentra_db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Supabase Configuration
+SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://zjbzxbymneuouuhenown.supabase.co')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY', 'sb_publishable_dcAdQIkVJygdHSi7FG67jQ_RqRpI__L')
 
-db = SQLAlchemy(app)
-
-# ==========================================
-# Database Models (Tables)
-# ==========================================
-
-# User Table - පරිශීලක තොරතුරු
-class User(db.Model):
-    __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), default='admin')
-
-    def __repr__(self):
-        return f'<User {self.email}>'
-
-# ParkingSpot Table - වාහන නැවැත්වීමේ ස්ථාන
-class ParkingSpot(db.Model):
-    __tablename__ = 'parking_spots'
-    id = db.Column(db.Integer, primary_key=True)
-    spot_name = db.Column(db.String(10), unique=True, nullable=False) # (Example: A1, A2)
-    is_occupied = db.Column(db.Boolean, default=False)
-
-# ParkingSession Table - In/Out log with timestamps
-class ParkingSession(db.Model):
-    __tablename__ = 'parking_sessions'
-    id = db.Column(db.Integer, primary_key=True)
-    plate_number = db.Column(db.String(20), nullable=False)
-    spot_name = db.Column(db.String(10), nullable=False)
-    entry_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    exit_time = db.Column(db.DateTime)
-    duration_minutes = db.Column(db.Integer)
-    amount_lkr = db.Column(db.Integer)
-
-# Camera Table - LPR Camera configuration
-class Camera(db.Model):
-    __tablename__ = 'cameras'
-    id = db.Column(db.Integer, primary_key=True)
-    camera_id = db.Column(db.String(50), unique=True, nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    camera_type = db.Column(db.String(20), nullable=False)  # 'entry' or 'exit'
-    source_url = db.Column(db.String(255))
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f'<Camera {self.name}>'
-
-# DetectionLog Table - LPR detection history
-class DetectionLog(db.Model):
-    __tablename__ = 'detection_logs'
-    id = db.Column(db.Integer, primary_key=True)
-    camera_id = db.Column(db.String(50), nullable=False)
-    plate_number = db.Column(db.String(20), nullable=False)
-    confidence = db.Column(db.Float, nullable=False)
-    detected_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    action_taken = db.Column(db.String(20))  # 'entry', 'exit', 'ignored', 'pending'
-    vehicle_class = db.Column(db.String(20))
-
-    def __repr__(self):
-        return f'<DetectionLog {self.plate_number} @ {self.detected_at}>'
+# Initialize Supabase client
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ==========================================
-# Import Routes (APIs) - වැදගත්ම කොටස
+# Import Routes (APIs)
 # ==========================================
-# අපි හදපු routes.py file එක මෙතනදී සම්බන්ධ කරනවා.
-# මේක අනිවාර්යයෙන්ම 'app' සහ 'db' හැදුවට පස්සේ වෙන්න ඕනේ.
-# ඒ වගේම main execution block එකට කලින් වෙන්න ඕනේ.
 from routes import *
 
 # ==========================================
-# Main Execution (ප්‍රධාන ක්‍රියාකාරීත්වය)
+# Main Execution
 # ==========================================
 if __name__ == '__main__':
-    # App context එක තුළ database tables සාදයි (නැත්නම්)
-    with app.app_context():
-        db.create_all()
-        print("Database tables checked/created successfully!")
-
-    # Flask server එක debug mode එකේ ආරම්භ කරයි
+    print(f"Connected to Supabase: {SUPABASE_URL}")
+    print("Server starting on port 5000...")
     app.run(debug=True, port=5000)
