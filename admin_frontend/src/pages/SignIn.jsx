@@ -31,9 +31,12 @@ export default function SignIn() {
       if (response.status === 200) {
         console.log("Login Successful:", response.data);
 
-        // User details browser එකේ save කරගන්න
-        localStorage.setItem("userEmail", response.data.email);
-        localStorage.setItem("userRole", response.data.role);
+        // Save authentication token and user details
+        localStorage.setItem("accessToken", response.data.access_token);
+        localStorage.setItem("refreshToken", response.data.refresh_token);
+        localStorage.setItem("userEmail", response.data.user.email);
+        localStorage.setItem("userId", response.data.user.id);
+        localStorage.setItem("userRole", response.data.user.role);
 
         // Dashboard එකට redirect කරනවා
         navigate("/");

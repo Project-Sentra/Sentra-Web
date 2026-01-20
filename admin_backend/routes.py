@@ -2,10 +2,44 @@ from flask import request, jsonify
 from datetime import datetime
 from math import ceil
 import httpx
+from functools import wraps
 from app import app, supabase
 
 # LPR Service Configuration
 LPR_SERVICE_URL = "http://127.0.0.1:5001"
+
+# ==========================================
+# Authentication Middleware
+# ==========================================
+def require_auth(f):
+    """Decorator to protect routes that require authentication"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header:
+            return jsonify({'message': 'No authorization token provided'}), 401
+        
+        try:
+            # Extract token (format: "Bearer <token>")
+            token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+            
+            # Verify token with Supabase
+            user = supabase.auth.get_user(token)
+            
+            if not user:
+                return jsonify({'message': 'Invalid or expired token'}), 401
+            
+            # Add user info to request context
+            request.current_user = user.user
+            
+            return f(*args, **kwargs)
+            
+        except Exception as e:
+            return jsonify({'message': f'Authentication failed: {str(e)}'}), 401
+    
+    return decorated_function
 
 # ==========================================
 # User Registration (Sign Up) API
@@ -16,20 +50,44 @@ def signup():
     email = data.get('email')
     password = data.get('password')
 
-    # Check if user already exists
-    result = supabase.table('users').select('*').eq('email', email).execute()
-    if result.data:
-        return jsonify({'message': 'User already exists!'}), 400
+    if not email or not password:
+        return jsonify({'message': 'Email and password are required'}), 400
 
-    # Create new user
-    new_user = {
-        'email': email,
-        'password': password,
-        'role': 'admin'
-    }
-    supabase.table('users').insert(new_user).execute()
+    if len(password) < 6:
+        return jsonify({'message': 'Password must be at least 6 characters'}), 400
 
-    return jsonify({'message': 'User created successfully!'}), 201
+    try:
+        # Use Supabase Auth to create user
+        response = supabase.auth.sign_up({
+            'email': email,
+            'password': password,
+            'options': {
+                'data': {
+                    'role': 'admin'
+                }
+            }
+        })
+
+        if response.user:
+            # Store additional user info in users table
+            supabase.table('users').insert({
+                'email': email,
+                'role': 'admin',
+                'auth_user_id': response.user.id
+            }).execute()
+
+            return jsonify({
+                'message': 'User created successfully! Please check your email to verify.',
+                'user_id': response.user.id
+            }), 201
+        else:
+            return jsonify({'message': 'Failed to create user'}), 400
+
+    except Exception as e:
+        error_message = str(e)
+        if 'already registered' in error_message.lower():
+            return jsonify({'message': 'User already exists!'}), 400
+        return jsonify({'message': f'Error: {error_message}'}), 500
 
 # ==========================================
 # User Login API
@@ -40,23 +98,46 @@ def login():
     email = data.get('email')
     password = data.get('password')
 
-    # Find user by email
-    result = supabase.table('users').select('*').eq('email', email).execute()
+    if not email or not password:
+        return jsonify({'message': 'Email and password are required'}), 400
 
-    if result.data and result.data[0]['password'] == password:
-        user = result.data[0]
-        return jsonify({
-            'message': 'Login successful!',
-            'role': user['role'],
-            'email': user['email']
-        }), 200
-    else:
-        return jsonify({'message': 'Invalid email or password'}), 401
+    try:
+        # Use Supabase Auth to sign in
+        response = supabase.auth.sign_in_with_password({
+            'email': email,
+            'password': password
+        })
+
+        if response.user and response.session:
+            # Get user role from users table
+            user_data = supabase.table('users')\
+                .select('role')\
+                .eq('email', email)\
+                .execute()
+
+            role = user_data.data[0]['role'] if user_data.data else 'admin'
+
+            return jsonify({
+                'message': 'Login successful!',
+                'access_token': response.session.access_token,
+                'refresh_token': response.session.refresh_token,
+                'user': {
+                    'id': response.user.id,
+                    'email': response.user.email,
+                    'role': role
+                }
+            }), 200
+        else:
+            return jsonify({'message': 'Invalid email or password'}), 401
+
+    except Exception as e:
+        return jsonify({'message': f'Login failed: {str(e)}'}), 401
 
 # ==========================================
 # Get All Parking Spots API
 # ==========================================
 @app.route('/api/spots', methods=['GET'])
+@require_auth
 def get_spots():
     try:
         result = supabase.table('parking_spots').select('*').order('id').execute()
@@ -78,6 +159,7 @@ def get_spots():
 # Initialize Spots (One-time setup)
 # ==========================================
 @app.route('/api/init-spots', methods=['POST'])
+@require_auth
 def init_spots():
     # Check if spots already exist
     result = supabase.table('parking_spots').select('id').limit(1).execute()
@@ -97,6 +179,7 @@ def init_spots():
 # Vehicle Entry API
 # ==========================================
 @app.route('/api/vehicle/entry', methods=['POST'])
+@require_auth
 def vehicle_entry():
     data = request.get_json()
     plate_number = data.get('plate_number')
@@ -139,6 +222,7 @@ def vehicle_entry():
 # Vehicle Exit API
 # ==========================================
 @app.route('/api/vehicle/exit', methods=['POST'])
+@require_auth
 def vehicle_exit():
     data = request.get_json() or {}
     plate_number = data.get('plate_number')
@@ -181,6 +265,7 @@ def vehicle_exit():
 # Parking Logs API
 # ==========================================
 @app.route('/api/logs', methods=['GET'])
+@require_auth
 def get_logs():
     result = supabase.table('parking_sessions').select('*').order('entry_time', desc=True).limit(50).execute()
 
@@ -204,6 +289,7 @@ def get_logs():
 # ==========================================
 
 @app.route('/api/lpr/status', methods=['GET'])
+@require_auth
 def lpr_status():
     """Check if the SentraAI LPR service is connected and running"""
     try:
@@ -224,6 +310,7 @@ def lpr_status():
 
 
 @app.route('/api/cameras', methods=['GET'])
+@require_auth
 def get_cameras():
     """Get all configured cameras"""
     result = supabase.table('cameras').select('*').order('id').execute()
@@ -242,6 +329,7 @@ def get_cameras():
 
 
 @app.route('/api/cameras', methods=['POST'])
+@require_auth
 def add_camera():
     """Add a new camera configuration"""
     data = request.get_json()
@@ -275,6 +363,7 @@ def add_camera():
 
 
 @app.route('/api/cameras/<camera_id>', methods=['DELETE'])
+@require_auth
 def delete_camera(camera_id):
     """Delete a camera configuration"""
     existing = supabase.table('cameras').select('id').eq('camera_id', camera_id).execute()
@@ -286,6 +375,7 @@ def delete_camera(camera_id):
 
 
 @app.route('/api/cameras/init', methods=['POST'])
+@require_auth
 def init_cameras():
     """Initialize default entry and exit cameras"""
     existing = supabase.table('cameras').select('id').limit(1).execute()
@@ -302,6 +392,7 @@ def init_cameras():
 
 
 @app.route('/api/detection-logs', methods=['GET'])
+@require_auth
 def get_detection_logs():
     """Get recent plate detection logs"""
     limit = request.args.get('limit', 50, type=int)
@@ -351,6 +442,7 @@ def add_detection_log():
 
 
 @app.route('/api/detection-logs/<int:log_id>/action', methods=['PATCH'])
+@require_auth
 def update_detection_action(log_id):
     """Update the action taken for a detection log"""
     data = request.get_json()
