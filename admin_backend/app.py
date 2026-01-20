@@ -14,8 +14,11 @@ app = Flask(__name__)
 CORS(app)
 
 # Supabase Configuration
-SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://zjbzxbymneuouuhenown.supabase.co')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY', 'sb_publishable_dcAdQIkVJygdHSi7FG67jQ_RqRpI__L')
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Missing required environment variables: SUPABASE_URL and SUPABASE_KEY must be set in .env file")
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
