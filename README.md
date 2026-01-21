@@ -19,6 +19,11 @@ This repository contains the complete source code for the **Sentra LPR Parking S
 - 📝 **Comprehensive logs** - Detailed entry/exit history with timestamps
 - 🎯 **License plate confirmation** - Manual approval system for detected plates
 
+## 🚀 Deployment
+
+This project depends on the **Sentra-Infrastructure** repository for AWS deployment. It uses GitHub Actions to build Docker images and deploy them to an EC2 instance via AWS Systems Manager.
+
+
 ## 🛠️ Tech Stack
 
 - **Frontend:** React 19, Vite 7, Tailwind CSS v4, Axios
