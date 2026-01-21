@@ -1,5 +1,5 @@
 from app import app, db, ParkingSpot
-from sqlalchemy import text # SQL විධාන යැවීමට අවශ්‍යයි
+from sqlalchemy import text  # SQL විධාන යැවීමට අවශ්‍යයි
 
 with app.app_context():
     try:
@@ -13,12 +13,12 @@ with app.app_context():
         # යම් හෙයකින් TRUNCATE වැඩ නොකළොත් (Permissions නිසා), සාමාන්‍ය විදියට මකමු
         db.session.query(ParkingSpot).delete()
         db.session.commit()
-    
+
     # නැවත Spots 32 සාදමු (දැන් ID පටන් ගන්නේ 1 න්)
     for i in range(1, 33):
-        spot_name = f'A-{str(i).zfill(2)}'
+        spot_name = f"A-{str(i).zfill(2)}"
         new_spot = ParkingSpot(spot_name=spot_name, is_occupied=False)
         db.session.add(new_spot)
-    
+
     db.session.commit()
     print("32 New spots created successfully with fresh IDs!")
