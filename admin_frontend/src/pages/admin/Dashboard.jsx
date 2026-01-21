@@ -18,9 +18,26 @@ export default function Dashboard() {
       setError(null);
     } catch (err) {
       console.error("Failed to fetch spots", err);
-      setError("Cannot reach backend. Is Flask running on port 5000?");
+      // Disable error spamming
+      if (err.response) {
+        setError("Cannot reach backend. Is Flask running on port 5000?");
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResetSystem() {
+    if (!window.confirm("Are you sure you want to reset all parking spots and clear history?")) {
+      return;
+    }
+    
+    try {
+      await api.post("/reset-system");
+      fetchSpots();
+    } catch (err) {
+      console.error("Failed to reset system", err);
+      alert("Failed to reset system: " + (err.response?.data?.message || err.message));
     }
   }
 
@@ -109,14 +126,28 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Floor Plan */}
           <div className="lg:col-span-2 h-auto bg-[#171717] p-6 rounded-2xl border border-[#232323]">
-            <h3 className="text-xl font-semibold mb-4">Live Floor Plan</h3>
+            <div className="flex justify-between items-start mb-6">
+                <h3 className="text-xl font-semibold">Live Floor Plan</h3>
+                <button
+                    onClick={handleResetSystem}
+                    title="Reset all spots"
+                    className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#222] hover:bg-red-500/10 border border-[#333] hover:border-red-500/50 transition-all duration-200"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" className="text-gray-400 group-hover:text-red-500 transition-colors" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                    <span className="text-xs font-medium text-gray-400 group-hover:text-red-500">Reset</span>
+                </button>
+            </div>
+            
             {loading ? (
               <p className="text-gray-500 animate-pulse">Loading map data...</p>
             ) : spots.length ? (
               <ParkingMap rows={4} cols={8} busyIndices={busyIndices} />
             ) : (
-              <div className="text-yellow-500 text-center py-10">
-                No parking spots found. Please run <strong>/api/init-spots</strong> via Postman.
+              <div className="text-gray-500 text-center py-10">
+                No parking floor plan data available.
               </div>
             )}
           </div>

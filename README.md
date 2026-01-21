@@ -15,6 +15,7 @@ This repository contains the complete source code for the **Sentra LPR Parking S
 - 📊 **Live statistics dashboard** - View real-time analytics and reports
 - 🔔 **WebSocket integration** - Instant updates for vehicle entry/exit events
 - 🅿️ **Spot management** - Monitor and manage parking spot availability
+- ♻️ **System Reset** - One-click reset functionality for demo purposes (Clear all sessions)
 - 📝 **Comprehensive logs** - Detailed entry/exit history with timestamps
 - 🎯 **License plate confirmation** - Manual approval system for detected plates
 

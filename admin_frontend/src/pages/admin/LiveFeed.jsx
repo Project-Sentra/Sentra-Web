@@ -158,12 +158,8 @@ export default function LiveFeed() {
           </div>
         </div>
 
-        {/* Connection Warning */}
-        {!isConnected && (
-          <div className="bg-yellow-500/10 border border-yellow-500 text-yellow-400 p-4 rounded-xl mb-6 text-sm">
-            Connecting to SentraAI service... Make sure it's running on port 5001.
-          </div>
-        )}
+        {/* Connection Warning - REMOVED FOR DEMO */}
+
 
         {/* Camera Grid */}
         <div className="bg-[#171717] border border-[#232323] rounded-2xl p-6 mb-8">

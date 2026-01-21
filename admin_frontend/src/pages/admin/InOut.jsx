@@ -41,9 +41,27 @@ export default function InOut() {
       setSpots(data?.spots ?? []);
     } catch (err) {
       console.error("Failed to fetch spots", err);
-      setError("Cannot reach backend. Is Flask running on port 5000?");
+      // Disable error spamming
+      if (err.response) {
+        setError("Cannot reach backend. Is Flask running on port 5000?");
+      }
     } finally {
       setLoadingSpots(false);
+    }
+  }
+
+  async function handleResetSystem() {
+    if (!window.confirm("Are you sure you want to reset all parking spots and clear history?")) {
+      return;
+    }
+    
+    try {
+      await api.post("/reset-system");
+      fetchLogs();
+      fetchSpots();
+    } catch (err) {
+      console.error("Failed to reset system", err);
+      alert("Failed to reset system: " + (err.response?.data?.message || err.message));
     }
   }
 
@@ -107,9 +125,8 @@ export default function InOut() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-yellow-500">
-                      No activity yet. Use Postman to call <strong>/api/vehicle/entry</strong> and
-                      <strong> /api/vehicle/exit</strong>.
+                    <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
+                      No recent vehicle activity found.
                     </td>
                   </tr>
                 )}
@@ -124,6 +141,21 @@ export default function InOut() {
         {loadingSpots && (
           <p className="text-center text-gray-500 text-sm mt-3">Updating map…</p>
         )}
+        
+        <div className="mt-8 flex justify-center">
+            <button
+                onClick={handleResetSystem}
+                className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1a1a1a] hover:bg-red-500/10 border border-[#333] hover:border-red-500/30 transition-all duration-300 shadow-lg"
+            >
+                <div className="p-1.5 rounded-full bg-[#222] group-hover:bg-red-500 text-gray-400 group-hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                </div>
+                <span className="text-sm font-medium text-gray-400 group-hover:text-red-400">Reset All Parking Spots</span>
+            </button>
+        </div>
       </div>
     </div>
   );

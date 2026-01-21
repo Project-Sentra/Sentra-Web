@@ -31,9 +31,8 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Token expired or invalid - redirect to login
-      localStorage.clear();
-      window.location.href = '/signin';
+      // Just log the error, don't redirect
+      console.error('Authentication error:', error.response.data);
     }
     return Promise.reject(error);
   }

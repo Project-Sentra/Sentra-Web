@@ -1,4 +1,5 @@
 import axios from "axios";
+import api from "./api";
 
 const PARKING_API = "http://127.0.0.1:5000";
 const LPR_API = "http://127.0.0.1:5001";
@@ -106,7 +107,7 @@ const lprService = {
    */
   async checkBackendLprStatus() {
     try {
-      const response = await axios.get(`${PARKING_API}/api/lpr/status`);
+      const response = await api.get("/lpr/status");
       return response.data;
     } catch (error) {
       return {
@@ -121,7 +122,7 @@ const lprService = {
    */
   async getBackendCameras() {
     try {
-      const response = await axios.get(`${PARKING_API}/api/cameras`);
+      const response = await api.get("/cameras");
       return response.data.cameras || [];
     } catch (error) {
       console.error("Failed to fetch backend cameras:", error);
@@ -146,7 +147,7 @@ const lprService = {
    */
   async getDetectionLogs(limit = 50) {
     try {
-      const response = await axios.get(`${PARKING_API}/api/detection-logs`, {
+      const response = await api.get("/detection-logs", {
         params: { limit },
       });
       return response.data.logs || [];
@@ -161,7 +162,7 @@ const lprService = {
    */
   async logDetection(detection) {
     try {
-      const response = await axios.post(`${PARKING_API}/api/detection-logs`, detection);
+      const response = await api.post("/detection-logs", detection);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || "Failed to log detection");

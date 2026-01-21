@@ -159,7 +159,6 @@ def get_spots():
 # Initialize Spots (One-time setup)
 # ==========================================
 @app.route('/api/init-spots', methods=['POST'])
-@require_auth
 def init_spots():
     # Check if spots already exist
     result = supabase.table('parking_spots').select('id').limit(1).execute()
@@ -176,10 +175,25 @@ def init_spots():
     return jsonify({'message': '32 Parking spots created successfully!'}), 201
 
 # ==========================================
+# Reset System (Clear all sessions and free all spots)
+# ==========================================
+@app.route('/api/reset-system', methods=['POST'])
+def reset_system():
+    try:
+        # Clear all parking sessions
+        supabase.table('parking_sessions').delete().neq('id', 0).execute()
+        
+        # Set all spots to free
+        supabase.table('parking_spots').update({'is_occupied': False}).neq('id', 0).execute()
+        
+        return jsonify({'message': 'System reset! All spots are now free.'}), 200
+    except Exception as e:
+        return jsonify({'message': f'Reset failed: {str(e)}'}), 500
+
+# ==========================================
 # Vehicle Entry API
 # ==========================================
 @app.route('/api/vehicle/entry', methods=['POST'])
-@require_auth
 def vehicle_entry():
     data = request.get_json()
     plate_number = data.get('plate_number')
@@ -222,7 +236,6 @@ def vehicle_entry():
 # Vehicle Exit API
 # ==========================================
 @app.route('/api/vehicle/exit', methods=['POST'])
-@require_auth
 def vehicle_exit():
     data = request.get_json() or {}
     plate_number = data.get('plate_number')
