@@ -58,7 +58,7 @@ export default function PlateConfirmModal({
         </div>
 
         {/* Plate Display */}
-        <div className="bg-[#e2e600] rounded-xl p-4 mb-6">
+        <div className="bg-sentraYellow rounded-xl p-4 mb-6">
           <p className="text-black text-3xl font-bold text-center tracking-wider">
             {detection.plate_text}
           </p>

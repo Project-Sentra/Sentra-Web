@@ -29,7 +29,7 @@ export default function CameraTile({
   return (
     <div className="relative rounded-xl bg-[#161616] border border-[#232323] h-64 flex flex-col overflow-hidden group">
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-3 bg-gradient-to-b from-black/80 to-transparent">
+      <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-3 bg-linear-to-b from-black/80 to-transparent">
         <div className="flex items-center gap-2">
           <span className="bg-black/50 px-2 py-1 rounded text-xs text-white">
             {title}
@@ -92,14 +92,14 @@ export default function CameraTile({
       {/* Detection Overlay */}
       {detection && (
         <div className="absolute bottom-16 left-0 right-0 flex justify-center">
-          <div className="bg-[#e2e600] px-4 py-2 rounded-lg shadow-lg">
+          <div className="bg-sentraYellow px-4 py-2 rounded-lg shadow-lg">
             <p className="text-black font-bold text-lg">{detection.plate_text}</p>
           </div>
         </div>
       )}
 
       {/* Controls Footer */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 p-3 bg-linear-to-t from-black/80 to-transparent">
         <div className="flex justify-between items-center">
           <span className="text-xs text-gray-400">
             {isRunning ? "Live" : hasError ? "Error" : "Idle"}

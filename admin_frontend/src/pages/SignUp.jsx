@@ -1,49 +1,65 @@
+/**
+ * SignUp.jsx - User Registration Page
+ * ======================================
+ * Allows new users to create an admin account.
+ *
+ * Registration Flow:
+ *   1. User enters name, email, password, and confirms password
+ *   2. Client validates: all fields filled, passwords match, min length
+ *   3. Sends POST /api/signup to Flask backend
+ *   4. Backend creates user via Supabase Auth (bcrypt-hashed password)
+ *   5. On success: redirects to /signin so the user can log in
+ *   6. On failure: shows error message (e.g. "User already exists!")
+ *
+ * Note: The "name" field is captured in the form but NOT sent to the
+ * backend (the signup endpoint only uses email + password). This could
+ * be extended by adding a "name" field to the users table.
+ *
+ * Note: Google/Apple sign-up buttons are placeholder UI only.
+ */
+
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-// [අවධානයට]: මෙම පරිසරයේ පින්තූර නොමැති නිසා පහත imports comment කර ඇත.
-// ඔබේ VS Code හිදී පහත පේළි දෙක uncomment කරන්න.
 import LogoMain from "../assets/logo_main.png";
 import LogoNoText from "../assets/logo_notext.png";
-
-// [අවධානයට]: ඉහත imports uncomment කළ පසු, මෙම තාවකාලික පේළි දෙක මකා දමන්න.
-//const LogoMain = ""; 
-//const LogoNoText = "";
 
 export default function SignUp() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState(""); // Error state
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  // Client-side validation checks
   const passwordsMatch = password.length > 0 && password === confirm;
   const canSubmit = name && email && password && confirm && passwordsMatch;
 
+  /** Handle the sign-up form submission */
   async function handleSubmit(e) {
     e.preventDefault();
     if (!canSubmit) return;
     setError("");
 
     try {
-      // Backend එකට දත්ත යැවීම
+      // Send registration request to the backend
       const response = await axios.post("http://127.0.0.1:5000/api/signup", {
         email: email,
         password: password,
+        full_name: name,
+        role: "admin",
       });
 
-      // සාර්ථක නම් (Status 201)
       if (response.status === 201) {
-        console.log("Signup Successful");
-        // Login page එකට යොමු කිරීම
+        // Registration successful - redirect to sign in page
         navigate("/signin");
       }
     } catch (err) {
       console.error("Signup Failed:", err);
       if (err.response && err.response.data) {
-        setError(err.response.data.message); // උදා: "User already exists!"
+        setError(err.response.data.message);
       } else {
         setError("Registration failed. Please try again.");
       }

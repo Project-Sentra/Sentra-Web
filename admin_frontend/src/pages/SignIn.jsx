@@ -1,49 +1,62 @@
+/**
+ * SignIn.jsx - User Login Page
+ * =============================
+ * Allows existing users to authenticate by email + password.
+ *
+ * Auth Flow:
+ *   1. User enters email and password
+ *   2. Sends POST /api/login to Flask backend
+ *   3. On success: stores JWT tokens + user info in localStorage, redirects to /
+ *   4. On failure: displays error message from the backend
+ *
+ * Stored in localStorage:
+ *   - accessToken   (JWT for Authorization header)
+ *   - refreshToken  (for future token renewal)
+ *   - userEmail, userId, userRole
+ *
+ * Note: Google/Apple sign-in buttons are placeholder UI only (not wired up).
+ */
+
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-// [අවධානයට]: මෙම පරිසරයේ පින්තූර නොමැති නිසා පහත imports comment කර ඇත.
-// ඔබේ VS Code හිදී පහත පේළි දෙක uncomment කරන්න.
 import LogoMain from "../assets/logo_main.png";
 import LogoNoText from "../assets/logo_notext.png";
-
-// [අවධානයට]: ඉහත imports uncomment කළ පසු, මෙම තාවකාලික පේළි දෙක මකා දමන්න.
-//const LogoMain = ""; 
-//const LogoNoText = "";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(""); // Error message පෙන්වන්න
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  /** Handle the sign-in form submission */
   const handleLogin = async () => {
-    setError(""); // කලින් තිබුන errors අයින් කරනවා
+    setError(""); // Clear previous errors
 
     try {
-      // Backend API එකට data යවනවා
+      // Call the backend login endpoint
       const response = await axios.post("http://127.0.0.1:5000/api/login", {
         email: email,
         password: password,
       });
 
-      // Login සාර්ථක නම් (Status 200)
       if (response.status === 200) {
-        console.log("Login Successful:", response.data);
-
-        // Save authentication token and user details
+        // Store authentication data in localStorage for the api.js interceptor
         localStorage.setItem("accessToken", response.data.access_token);
         localStorage.setItem("refreshToken", response.data.refresh_token);
         localStorage.setItem("userEmail", response.data.user.email);
         localStorage.setItem("userId", response.data.user.id);
+        localStorage.setItem("userDbId", response.data.user.db_id);
         localStorage.setItem("userRole", response.data.user.role);
+        localStorage.setItem("userFullName", response.data.user.full_name || "");
 
-        // Dashboard එකට redirect කරනවා
+        // Redirect to the home page (which shows facilities)
         navigate("/");
       }
     } catch (err) {
       console.error("Login Failed:", err);
-      // Backend එකෙන් එවන error message එක පෙන්වනවා
+      // Display backend error message or a generic fallback
       if (err.response && err.response.data) {
         setError(err.response.data.message);
       } else {

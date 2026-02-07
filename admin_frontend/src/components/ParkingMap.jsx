@@ -1,5 +1,21 @@
+/**
+ * ParkingMap.jsx - Visual Parking Floor Plan
+ * ============================================
+ * Renders a grid of parking slots showing which spots are free (green)
+ * and which are occupied (red). Used on the Dashboard and InOut pages.
+ *
+ * Props:
+ *   @param {number} rows - Grid rows (default 8).
+ *   @param {number} cols - Grid columns (default 4). CSS grid uses cols.
+ *   @param {number[]} busyIndices - Array of 0-based indices for occupied spots.
+ *
+ * The grid always renders rows * cols = total slots, labeled A-01, A-02, etc.
+ * The busyIndices come from the backend spot IDs (adjusted to 0-based).
+ */
+
 import React from "react";
 
+/** Individual parking slot cell. Green = free, Red = occupied. */
 function Slot({ busy = false, label }) {
   return (
     <div

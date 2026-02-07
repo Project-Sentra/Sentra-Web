@@ -1,17 +1,39 @@
-import React from "react";
-import { Link, NavLink, useParams } from "react-router-dom";
+/**
+ * Sidebar.jsx - Admin Navigation Sidebar (v2.0)
+ * ================================================
+ * Vertical sidebar shown on all admin pages.
+ * Contains:
+ *   - Back arrow to return to facility list
+ *   - Current admin user name (from localStorage)
+ *   - Facility name (passed via prop)
+ *   - Navigation links: Dashboard, In & Out, Live feed, Users, Vehicles, Reservations
+ *   - Logout button at the bottom
+ *
+ * The sidebar builds link paths using the :facilityId route param.
+ */
 
-export default function Sidebar({ facilityName = "Downtown Parking" }) {
+import React from "react";
+import { Link, NavLink, useParams, useNavigate } from "react-router-dom";
+
+export default function Sidebar({ facilityName = "Parking Facility" }) {
   const { facilityId } = useParams();
-  // Default to ID 1 if not present
+  const navigate = useNavigate();
   const fId = facilityId || 1;
   const linkBase = `/admin/${fId}`;
-  
+
+  const adminName = localStorage.getItem("userFullName") || localStorage.getItem("userEmail") || "Admin";
+  const adminInitial = adminName.charAt(0).toUpperCase();
+
   const linkClass = ({ isActive }) =>
     "block px-4 py-2 rounded-md mt-2 transition " +
     (isActive
-      ? "bg-[#e2e600] text-black font-semibold"
+      ? "bg-sentraYellow text-black font-semibold"
       : "text-gray-400 hover:text-white hover:bg-[#1f1f1f]");
+
+  function handleLogout() {
+    localStorage.clear();
+    navigate("/signin");
+  }
 
   return (
     <aside className="w-64 shrink-0 bg-[#121212] border-r border-[#232323] flex flex-col h-screen sticky top-0 overflow-y-auto">
@@ -21,10 +43,10 @@ export default function Sidebar({ facilityName = "Downtown Parking" }) {
         </Link>
         
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-full bg-[#1f1f1f] flex items-center justify-center text-[#e2e600] font-bold">
-            A
+          <div className="w-8 h-8 rounded-full bg-[#1f1f1f] flex items-center justify-center text-sentraYellow font-bold">
+            {adminInitial}
           </div>
-          <div className="text-sm text-gray-300">Admin One</div>
+          <div className="text-sm text-gray-300">{adminName}</div>
         </div>
 
         <h2 className="text-2xl font-bold text-white leading-tight">
@@ -41,12 +63,27 @@ export default function Sidebar({ facilityName = "Downtown Parking" }) {
           <NavLink to={`${linkBase}/live`} className={linkClass}>
             Live feed
           </NavLink>
+
+          <div className="h-px bg-[#232323] my-4"></div>
+
+          <NavLink to="/admin/users" className={linkClass}>
+            Users
+          </NavLink>
+          <NavLink to="/admin/vehicles" className={linkClass}>
+            Vehicles
+          </NavLink>
+          <NavLink to="/admin/reservations" className={linkClass}>
+            Reservations
+          </NavLink>
         </nav>
       </div>
 
       <div className="mt-auto p-6 border-t border-[#232323]">
-        <button className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-300 transition">
-          <span>⚙️</span> Settings
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-400 transition"
+        >
+          <span>🚪</span> Logout
         </button>
       </div>
     </aside>

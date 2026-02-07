@@ -1,3 +1,17 @@
+/**
+ * InOut.jsx - Vehicle Entry/Exit Logs Page
+ * ==========================================
+ * Shows a table of all parking sessions (entries + exits) with:
+ *   - License plate, assigned spot, entry/exit times
+ *   - Duration and parking fee (LKR)
+ *   - Active sessions show "—" for exit time, duration, and amount
+ *
+ * Also shows a mini parking map on the right side (desktop only)
+ * and a "Reset All Parking Spots" button for demo/testing.
+ *
+ * Data is polled every 1 second from GET /api/logs and GET /api/spots.
+ */
+
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 import Sidebar from "../../components/Sidebar";

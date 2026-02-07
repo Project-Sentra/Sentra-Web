@@ -1,3 +1,20 @@
+/*
+ * index.css - Global Styles & Tailwind CSS v4 Configuration
+ * ===========================================================
+ * Imports the Poppins font from Google Fonts and configures
+ * Tailwind CSS with custom theme tokens used throughout the app.
+ *
+ * Custom Theme Colors:
+ *   sentraBlack  (#111111) - Main background
+ *   sentraGray   (#191919) - Card/sidebar backgrounds
+ *   sentraYellow (#e2e600) - Brand accent color (buttons, highlights)
+ *
+ * Custom Font:
+ *   font-poppins - Poppins font family, used as the app's typeface
+ *
+ * Usage in JSX: className="bg-sentraBlack text-sentraYellow font-poppins"
+ */
+
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
