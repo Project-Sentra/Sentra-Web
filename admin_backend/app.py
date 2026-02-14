@@ -8,7 +8,7 @@ This file is the starting point of the admin backend. It:
   1. Loads environment variables from a .env file
   2. Creates a Flask app with CORS enabled (allows frontend at any origin)
   3. Connects to Supabase (hosted PostgreSQL) using URL + anon key
-  4. Imports all API route handlers from routes.py
+  4. Imports all API route modules from routes.py
   5. Starts the development server on port 5000
 
 Environment Variables Required (in .env):
@@ -16,14 +16,25 @@ Environment Variables Required (in .env):
   SUPABASE_KEY - Your Supabase anon/public API key
 """
 
-from flask import Flask
+from flask import Flask, request, make_response
 from flask_cors import CORS
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import os
+import sys
 
 # Load environment variables from .env file in the same directory
 load_dotenv()
+
+# Fix the __main__ / app double-import problem:
+# When run via `python app.py`, this module is loaded as "__main__".
+# Route files do `from app import app, supabase`, which would re-import
+# this file as a *separate* module named "app", creating a second Flask
+# instance.  All @app.route() decorators would register on that second
+# instance while app.run() serves the first one → every route returns 404.
+# The line below makes both names point to the same module object.
+if __name__ == "__main__":
+    sys.modules.setdefault("app", sys.modules["__main__"])
 
 # ==========================================
 # Flask App Initialization
@@ -33,7 +44,17 @@ app = Flask(__name__)
 
 # Enable CORS for all origins so the React frontend (port 5173) can call the API.
 # In production, restrict this to your actual frontend domain.
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+
+@app.before_request
+def handle_preflight():
+    """
+    Catch all OPTIONS preflight requests early and return 200.
+    The flask-cors after_request hook will add the CORS headers.
+    """
+    if request.method == "OPTIONS":
+        return make_response(), 200
 
 # ==========================================
 # Supabase Database Configuration
@@ -48,16 +69,16 @@ if not SUPABASE_URL or not SUPABASE_KEY:
         "Missing required environment variables: SUPABASE_URL and SUPABASE_KEY must be set in .env file"
     )
 
-# Create the Supabase client used by all route handlers in routes.py
+# Create the Supabase client used by all route handlers in routes_*.py
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ==========================================
 # Import Routes
 # ==========================================
 
-# All API endpoints are defined in routes.py.
-# The wildcard import registers them with the Flask app instance above.
-from routes import *  # noqa: E402, F401, F403
+# All API endpoints are defined in routes_*.py and registered by routes.py.
+# Importing routes registers them with the Flask app instance above.
+import routes  # noqa: E402, F401
 
 # ==========================================
 # Development Server

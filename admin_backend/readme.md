@@ -10,7 +10,8 @@ Serves both the **admin web dashboard** and the **mobile app** (Flutter, separat
 | File | Purpose |
 |------|---------|
 | `app.py` | Flask app initialization, Supabase client setup, CORS |
-| `routes.py` | All API endpoints (~900 lines, 60+ endpoints across 15 groups) |
+| `routes.py` | Route registry that imports all route modules |
+| `routes_*.py` | Grouped API endpoints by domain (auth, facilities, sessions, etc.) |
 | `reset_db.py` | Database reset and seed script (facility, spots, pricing plans) |
 | `supabase_schema.sql` | Complete database schema v2.0 (16 tables, run in Supabase SQL Editor) |
 | `requirements.txt` | Python dependencies |
@@ -147,7 +148,7 @@ All v1 endpoints are aliased to v2 equivalents:
 
 The backend communicates with SentraAI for health checks:
 - `GET http://127.0.0.1:5001/api/health` (proxied via `/api/lpr/status`)
-- The URL is hardcoded in `routes.py`
+- The URL is hardcoded in `routes_common.py`
 
 ## Docker
 
