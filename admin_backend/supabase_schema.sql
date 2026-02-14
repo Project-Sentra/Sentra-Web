@@ -14,9 +14,9 @@
 --   - Camera and gate hardware configuration
 --   - Detection event logging
 --
--- Tables (16):
+-- Tables (17):
 --   users, vehicles, facilities, floors, parking_spots,
---   parking_sessions, reservations, pricing_plans, payments,
+--   parking_sessions, reservations, pricing_plans, payment_methods, payments,
 --   subscriptions, cameras, gates, detection_logs, gate_events,
 --   notifications, user_wallets
 -- =============================================================================
@@ -211,6 +211,29 @@ CREATE TABLE IF NOT EXISTS user_wallets (
 
 
 -- ────────────────────────────────────────────────────────────────
+-- 9.5 PAYMENT METHODS (Stripe-ready)
+-- ────────────────────────────────────────────────────────────────
+-- Stored card metadata and provider references. No raw card data.
+
+CREATE TABLE IF NOT EXISTS payment_methods (
+    id                  BIGSERIAL PRIMARY KEY,
+    user_id             BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type                VARCHAR(20) DEFAULT 'card'            -- 'card' | 'bank_transfer' | 'mobile_money'
+                            CHECK (type IN ('card', 'bank_transfer', 'mobile_money')),
+    provider            VARCHAR(20) DEFAULT 'stripe',
+    provider_method_id  VARCHAR(100),                         -- Stripe payment_method id
+    card_brand          VARCHAR(50),
+    last_four_digits    VARCHAR(4) NOT NULL,
+    card_holder_name    VARCHAR(100),
+    expiry_month        INTEGER,
+    expiry_year         INTEGER,
+    is_default          BOOLEAN DEFAULT FALSE,
+    created_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+
+-- ────────────────────────────────────────────────────────────────
 -- 10. PAYMENTS
 -- ────────────────────────────────────────────────────────────────
 -- All payment transactions.
@@ -220,6 +243,7 @@ CREATE TABLE IF NOT EXISTS payments (
     user_id             BIGINT REFERENCES users(id) ON DELETE SET NULL,
     session_id          BIGINT REFERENCES parking_sessions(id) ON DELETE SET NULL,
     reservation_id      BIGINT REFERENCES reservations(id) ON DELETE SET NULL,
+    payment_method_id   BIGINT REFERENCES payment_methods(id) ON DELETE SET NULL,
     subscription_id     BIGINT,                               -- FK added after subscriptions table
     amount              INTEGER NOT NULL,                     -- Amount in LKR
     currency            VARCHAR(3) DEFAULT 'LKR',
@@ -385,6 +409,15 @@ CREATE INDEX IF NOT EXISTS idx_reservations_user ON reservations(user_id);
 CREATE INDEX IF NOT EXISTS idx_reservations_facility ON reservations(facility_id);
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
 CREATE INDEX IF NOT EXISTS idx_reservations_start ON reservations(reserved_start);
+
+-- Payment methods
+CREATE INDEX IF NOT EXISTS idx_payment_methods_user ON payment_methods(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_methods_default
+    ON payment_methods(user_id, is_default);
+
+-- Payments
+CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_method ON payments(payment_method_id);
 
 -- Detection logs
 CREATE INDEX IF NOT EXISTS idx_detections_detected ON detection_logs(detected_at);
