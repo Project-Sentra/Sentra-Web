@@ -576,6 +576,14 @@ def update_facility(facility_id):
     return jsonify({"message": "Facility updated"}), 200
 
 
+@app.route("/api/facilities/<int:facility_id>", methods=["DELETE"])
+@require_admin
+def delete_facility(facility_id):
+    """DELETE /api/facilities/:id – Remove a facility."""
+    supabase.table("facilities").delete().eq("id", facility_id).execute()
+    return jsonify({"message": "Facility deleted"}), 200
+
+
 # ==========================================================================
 # 5. PARKING SPOTS
 # ==========================================================================
