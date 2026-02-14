@@ -1,3 +1,23 @@
+/**
+ * LiveFeed.jsx - Live Camera Feeds Page
+ * ========================================
+ * Displays live camera feeds from the SentraAI LPR service via WebSocket.
+ *
+ * Features:
+ *   - Shows camera tiles with real-time video frames (base64 JPEG)
+ *   - Start/Stop individual cameras or all cameras at once
+ *   - Plate detection overlay when AI recognizes a license plate
+ *   - Confirmation modal: operator can approve entry, exit, or ignore
+ *   - Recent detections list at the bottom
+ *   - LPR service status indicator
+ *
+ * Architecture:
+ *   - useWebSocket hook maintains the WebSocket connection to SentraAI
+ *   - Camera frames arrive as base64 images via WebSocket messages
+ *   - Detections are logged to our backend via lprService.logDetection()
+ *   - Entry/exit confirmations are sent back over WebSocket
+ */
+
 import React, { useState, useCallback, useEffect } from "react";
 import Sidebar from "../../components/Sidebar";
 import CameraTile from "../../components/CameraTile";
@@ -213,7 +233,7 @@ export default function LiveFeed() {
                   className="flex items-center justify-between p-3 bg-[#1f1f1f] rounded-xl"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="bg-[#e2e600] px-3 py-1 rounded">
+                    <div className="bg-sentraYellow px-3 py-1 rounded">
                       <span className="text-black font-bold">{det.plate_text}</span>
                     </div>
                     <span className="text-gray-400 text-sm">{det.camera_id}</span>

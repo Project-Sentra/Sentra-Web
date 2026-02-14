@@ -1,55 +1,84 @@
-<div align="center">
+﻿<div align="center">
   <img src="admin_frontend/src/assets/logo_notext.png" alt="Sentra" width="72" height="72" />
-  
-  <h1>Sentra – LPR Parking System</h1>
-  <p>A modern, admin‑friendly parking management platform powered by License Plate Recognition.</p>
+
+  <h1>Sentra - LPR Parking System</h1>
+  <p>A production-grade parking management platform powered by License Plate Recognition, supporting admin web dashboard and mobile user app.</p>
 </div>
 
-## 📋 Overview
+## Overview
 
-This repository contains the complete source code for the **Sentra LPR Parking System**. It consists of a React-based admin dashboard and a Flask backend that manages parking sessions, facilities, and live updates with real-time license plate recognition integration.
+This repository contains the **admin web application** and **REST API** for the Sentra LPR Parking System. The backend also serves the mobile app (separate repo). It has two components:
+
+| Component | Directory | Tech |
+|-----------|-----------|------|
+| **Admin Dashboard** (frontend) | `admin_frontend/` | React 19, Vite 7, Tailwind CSS v4 |
+| **REST API** (backend) | `admin_backend/` | Python 3.10+, Flask, Supabase |
+
+The system manages multi-facility parking operations, vehicle registration, reservations, subscriptions, wallet payments, and integrates with the separate **SentraAI-model** service for real-time license plate detection.
 
 ### Key Features
-- 🚗 **Real-time parking monitoring** - Track occupancy and vehicle movements live
-- 💰 **Automated revenue tracking** - Calculate parking fees based on duration
-- 📊 **Live statistics dashboard** - View real-time analytics and reports
-- 🔔 **WebSocket integration** - Instant updates for vehicle entry/exit events
-- 🅿️ **Spot management** - Monitor and manage parking spot availability
-- ♻️ **System Reset** - One-click reset functionality for demo purposes (Clear all sessions)
-- 📝 **Comprehensive logs** - Detailed entry/exit history with timestamps
-- 🎯 **License plate confirmation** - Manual approval system for detected plates
 
-## 🚀 Deployment
+- **Multi-Facility Support** - Manage multiple parking facilities with independent spots, floors, and pricing
+- **Real-time Occupancy Monitoring** - Live parking map with auto-polling
+- **Automated Billing** - Hourly pricing with wallet auto-pay and subscription support
+- **Vehicle Registration** - Users register vehicles; LPR checks registration status on entry
+- **Advance Reservations** - Book spots with QR code for check-in
+- **Subscription Plans** - Monthly passes with auto-renew, parking fee waived for subscribers
+- **Wallet System** - Top-up wallet, automatic payment deduction on exit
+- **Gate Control** - Entry/exit gates with manual open/close and audit logging
+- **Smart Entry/Exit** - Auto-assigns spots; reservation > subscription > walk-in priority
+- **WebSocket Integration** - Instant plate detection events from SentraAI
+- **Push Notifications** - In-app notifications for entry, exit, reservations, payments
+- **Role-based Access** - Admin, operator, and user roles
+- **JWT Authentication** - Supabase Auth with bcrypt password hashing
+- **Mobile App Support** - Same API serves the Flutter mobile app
 
-This project depends on the **Sentra-Infrastructure** repository for AWS deployment. It uses GitHub Actions to build Docker images and deploy them to an EC2 instance via AWS Systems Manager.
+## Tech Stack
 
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, Vite 7, Tailwind CSS v4, Axios, React Router v7 |
+| Backend | Python 3.10+, Flask, Flask-CORS, httpx |
+| Database | Supabase (hosted PostgreSQL) with RLS |
+| Auth | Supabase Auth (JWT + bcrypt) |
+| AI Integration | SentraAI Model API (separate service, port 5001) |
+| Mobile | Flutter (separate repo, shares backend API) |
+| Deployment | Docker, GitHub Actions CI/CD, AWS EC2 |
 
-## 🛠️ Tech Stack
+## Database Schema (v2.0)
 
-- **Frontend:** React 19, Vite 7, Tailwind CSS v4, Axios
-- **Backend:** Python 3.10+, Flask, Flask-CORS
-- **Database:** Supabase (PostgreSQL)
-- **Real-time:** WebSocket for live updates
-- **Integration:** SentraAI Model API for license plate detection
+The system uses 16 database tables:
 
-## 📦 Prerequisites
+| Table | Purpose |
+|-------|---------|
+| `users` | User accounts with roles (admin/user/operator) |
+| `vehicles` | Registered vehicles with plate, make, model, color |
+| `facilities` | Parking facilities with address, capacity, pricing |
+| `floors` | Floors within facilities |
+| `parking_spots` | Individual spots with type (regular/handicapped/ev/vip) |
+| `pricing_plans` | Pricing plans (hourly/daily/monthly/reservation) |
+| `reservations` | Advance bookings with QR codes and status tracking |
+| `parking_sessions` | Active and historical parking sessions |
+| `user_wallets` | User wallet balances for auto-payment |
+| `payments` | Payment records for sessions, top-ups, subscriptions |
+| `subscriptions` | Monthly pass subscriptions with auto-renew |
+| `cameras` | Camera configurations linked to facilities and gates |
+| `gates` | Entry/exit gates with hardware IP and status |
+| `detection_logs` | LPR detection events with confidence scores |
+| `gate_events` | Gate open/close audit log |
+| `notifications` | User notifications (entry, exit, payment, reservation) |
 
-Before running the project, ensure you have the following installed:
+See `admin_backend/supabase_schema.sql` for the complete schema with indexes and RLS policies.
 
-### Required Software
-1.  **Node.js** (v18 or higher)
-    - Download: [nodejs.org](https://nodejs.org/)
-    - Verify: `node -v` and `npm -v`
-    
-2.  **Python** (v3.10 or higher)
-    - Download: [python.org](https://www.python.org/)
-    - Verify: `python --version` or `python3 --version`
-    
-3.  **Supabase Account** (Free tier available)
-    - Sign up at: [supabase.com](https://supabase.com)
-    - You'll need your project URL and API key
+## Prerequisites
 
-## 🚀 Quick Start Guide
+1. **Node.js** v18+ - [nodejs.org](https://nodejs.org/)
+2. **Python** v3.10+ - [python.org](https://www.python.org/)
+3. **Supabase Account** (free tier works) - [supabase.com](https://supabase.com)
+
+> **First time?** See the [Complete Setup Guide](SETUP_GUIDE.md) for detailed, beginner-friendly instructions.
+
+## Quick Start Guide
 
 ### Step 1: Clone the Repository
 
@@ -60,384 +89,260 @@ cd lpr-parking-system
 
 ### Step 2: Database Setup (Supabase)
 
-1.  **Create a Supabase project:**
-    - Go to [supabase.com](https://supabase.com) and create a new project
-    - Wait for the project to finish provisioning (~2 minutes)
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Go to **SQL Editor** and run the contents of `admin_backend/supabase_schema.sql`
+3. Copy your **Project URL** and **anon public key** from Project Settings > API
 
-2.  **Run the database schema:**
-    - Navigate to SQL Editor in your Supabase dashboard
-    - Copy the contents of `admin_backend/supabase_schema.sql`
-    - Paste and run it in the SQL Editor
-    - This will create all necessary tables (users, parking_spots, parking_sessions, cameras, detection_logs)
+### Step 3: Backend Setup
 
-3.  **Get your Supabase credentials:**
-    - Go to Project Settings → API
-    - Copy your `Project URL` and `anon public` API key
+```bash
+cd admin_backend
 
-### Step 3: Backend Setup (Python/Flask)
+# Create and activate a virtual environment
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS/Linux
 
-1.  **Navigate to the backend directory:**
-    ```bash
-    cd admin_backend
-    ```
+# Install dependencies
+pip install -r requirements.txt
 
-2.  **Create a virtual environment (Recommended):**
-    
-    **Windows:**
-    ```bash
-    python -m venv venv
-    venv\Scripts\activate
-    ```
-    
-    **macOS/Linux:**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
+# Configure environment variables
+copy .env.example .env       # Windows
+# cp .env.example .env       # macOS/Linux
+```
 
-3.  **Install Python dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+Edit `.env` with your Supabase credentials:
+```env
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_KEY=your-supabase-anon-key
+```
 
-4.  **Configure environment variables:**
-    - Create a `.env` file in the `admin_backend` directory
-    - Add your Supabase credentials:
-    ```env
-    SUPABASE_URL=your_supabase_project_url
-    SUPABASE_KEY=your_supabase_anon_key
-    ```
-    
-    **OR** edit `app.py` directly (lines 17-18):
-    ```python
-    SUPABASE_URL = os.getenv('SUPABASE_URL', 'your_supabase_url_here')
-    SUPABASE_KEY = os.getenv('SUPABASE_KEY', 'your_supabase_key_here')
-    ```
+```bash
+# Seed default facility + 32 spots + pricing plans
+python reset_db.py --seed-only
 
-5.  **Initialize parking spots (Optional):**
-    If you want to populate the database with initial parking spots:
-    ```bash
-    python reset_db.py
-    ```
-    This creates spots A01-A10, B01-B10, C01-C10 (30 spots total)
+# Start the Flask development server
+python app.py
+# Server starts on http://127.0.0.1:5000
+```
 
-6.  **Start the Flask server:**
-    ```bash
-    python app.py
-    ```
-    ✅ You should see: `Server starting on port 5000...` and `Connected to Supabase: <your-url>`
+### Step 4: Frontend Setup
 
-### Step 4: Frontend Setup (React)
+Open a **new terminal** (keep the backend running):
 
-1.  **Open a NEW terminal window** (keep the backend running)
-
-2.  **Navigate to the frontend directory:**
-    ```bash
-    cd admin_frontend
-    ```
-
-3.  **Install Node dependencies:**
-    ```bash
-    npm install
-    ```
-
-4.  **Start the development server:**
-    ```bash
-    npm run dev
-    ```
-    ✅ You should see: `Local: http://localhost:5173`
+```bash
+cd admin_frontend
+npm install
+npm run dev
+# Dev server starts on http://localhost:5173
+```
 
 ### Step 5: Access the Application
 
-1.  Open your browser and navigate to: **http://localhost:5173**
-2.  You should see the Sentra Admin Dashboard
+1. Open **http://localhost:5173** in your browser
+2. Create an account at `/signup`
+3. Sign in at `/signin`
+4. You'll land on the **Facilities** page - click a facility to open the Dashboard
 
-## 🎯 Usage Guide
+## Testing Without Cameras
 
-### Testing Without Physical Cameras
+You can test the full system without the SentraAI service or physical cameras:
 
-Since physical LPR cameras may not be connected initially, you can test the system in two ways:
-
-#### Option 1: Using SentraAI Model (Recommended)
-
-Follow the setup instructions in the [SentraAI-model repository](https://github.com/Project-Sentra/SentraAI-model) to enable real-time license plate detection with simulated or live camera feeds.
-
-#### Option 2: Manual API Testing
-
-Use **Postman**, **cURL**, or **Thunder Client** to simulate vehicle entry/exit:
-
-**Vehicle Entry:**
 ```bash
-POST http://127.0.0.1:5000/api/vehicle/entry
-Content-Type: application/json
+# Vehicle Entry
+curl -X POST http://127.0.0.1:5000/api/sessions/entry \
+  -H "Content-Type: application/json" \
+  -d '{"plate_number": "WP CA-1234", "facility_id": 1}'
 
-{
-  "plate_number": "WP CA-1234"
-}
+# Vehicle Exit
+curl -X POST http://127.0.0.1:5000/api/sessions/exit \
+  -H "Content-Type: application/json" \
+  -d '{"plate_number": "WP CA-1234"}'
 ```
 
-**Vehicle Exit:**
-```bash
-POST http://127.0.0.1:5000/api/vehicle/exit
-Content-Type: application/json
+The dashboard will update automatically via polling.
 
-{
-  "plate_number": "WP CA-1234"
-}
+## API Endpoints (v2.0)
+
+The API has 60+ endpoints organized into 15 groups:
+
+| Group | Endpoints | Auth |
+|-------|-----------|------|
+| Auth | signup, login, profile | Public / Protected |
+| Admin Users | list, get, update | Admin |
+| Vehicles | CRUD, lookup by plate | Protected / Public |
+| Facilities | CRUD with live occupancy | Public / Admin |
+| Parking Spots | list, init, update | Public / Admin |
+| Reservations | create, list, cancel | Protected |
+| Sessions | entry, exit, history | Public / Protected |
+| Payments & Wallet | balance, topup, history | Protected |
+| Subscriptions | purchase, list, cancel | Protected |
+| Cameras | CRUD | Admin |
+| Gates | CRUD, open/close | Admin |
+| Detection Logs | CRUD, approve/reject | Admin / Public |
+| Notifications | list, mark read | Protected |
+| Dashboard Stats | occupancy, revenue, entries | Admin |
+| System | reset, LPR health check | Admin |
+
+> See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for full request/response details.
+
+### Backward Compatibility
+
+All v1 endpoints (`/api/signup`, `/api/login`, `/api/spots`, `/api/vehicle/entry`, etc.) are still supported via aliases to the new v2 endpoints.
+
+## Architecture
+
+```
++--------------+    WebSocket     +--------------+    HTTP     +---------------+
+|  React App   |<--------------->|  SentraAI    |------------>|  Flask API    |
+|  (port 5173) |                 |  (port 5001) |            |  (port 5000)  |
++--------------+                 +--------------+            +-------+-------+
+       |                                                             |
+       |              HTTP (authenticated)                           |
+       +-------------------------------------------------------------+
+                                                                     |
++--------------+                                              +------v------+
+| Mobile App   |------- HTTP (authenticated) ---------------->|  Supabase   |
+| (Flutter)    |                                              | (PostgreSQL)|
++--------------+                                              +-------------+
 ```
 
-**Expected Response:**
-```json
-{
-  "success": true,
-  "message": "Vehicle entered successfully",
-  "data": {
-    "id": 1,
-    "plate_number": "WP CA-1234",
-    "spot_name": "A01",
-    "entry_time": "2026-01-20T15:30:00"
-  }
-}
-```
+**Entry/Exit Flow:**
+1. **SentraAI** detects a license plate from camera feed
+2. **WebSocket** pushes detection event to the React frontend
+3. **Operator** confirms entry/exit via modal dialog (or auto-approved if registered)
+4. **Flask backend** checks reservation > subscription > walk-in, assigns spot
+5. On exit: calculates fee, auto-deducts from wallet if sufficient
+6. **Dashboard** updates in real-time via polling
 
-The dashboard will update automatically via WebSocket!
-
-### Dashboard Features
-
-- **📊 Live Statistics:** Total spots, occupied spots, available spots, today's revenue
-- **🚗 Active Vehicles:** Real-time list of parked vehicles with entry times
-- **📝 Entry/Exit Logs:** Complete history with timestamps, duration, and fees
-- **🔔 Real-time Updates:** Instant notifications when vehicles enter or exit
-
-## 🔧 Configuration
-
-### Backend Configuration (app.py)
-
-```python
-# Supabase Configuration
-SUPABASE_URL = 'your_supabase_project_url'
-SUPABASE_KEY = 'your_supabase_anon_key'
-
-# Server Port (default: 5000)
-app.run(debug=True, port=5000)
-```
-
-### Frontend Configuration
-
-The frontend automatically connects to `http://localhost:5000` for API calls and WebSocket. To change this, edit:
-- `admin_frontend/src/services/lprService.js` - API base URL
-- `admin_frontend/src/hooks/useWebSocket.js` - WebSocket URL
-
-### Parking Fee Calculation
-
-Default rate: **LKR 100 per hour**
-
-Modify in `admin_backend/routes.py`:
-```python
-def calculate_parking_fee(duration_minutes):
-    RATE_PER_HOUR = 100  # Change this value
-    hours = duration_minutes / 60
-    return int(hours * RATE_PER_HOUR)
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### 1. Database Connection Error
-```
-Error: Could not connect to Supabase
-```
-**Solutions:**
-- Verify your Supabase URL and API key in `.env` or `app.py`
-- Check that your Supabase project is active
-- Ensure you've run the schema SQL in Supabase SQL Editor
-
-#### 2. Port Already in Use
-```
-Error: Address already in use: Port 5000
-```
-**Solutions:**
-- Find and kill the process using the port:
-  ```bash
-  # macOS/Linux
-  lsof -ti:5000 | xargs kill -9
-  
-  # Windows
-  netstat -ano | findstr :5000
-  taskkill /PID <process_id> /F
-  ```
-- Or change the port in `app.py`
-
-#### 3. Module Not Found Error
-```
-ModuleNotFoundError: No module named 'flask'
-```
-**Solutions:**
-- Ensure virtual environment is activated (you should see `(venv)` in terminal)
-- Re-run: `pip install -r requirements.txt`
-
-#### 4. CORS Errors in Browser
-```
-Access to XMLHttpRequest blocked by CORS policy
-```
-**Solutions:**
-- Ensure Flask backend is running
-- Check Flask-CORS is installed: `pip install flask-cors`
-- Verify `CORS(app)` is called in `app.py`
-
-#### 5. WebSocket Connection Failed
-**Solutions:**
-- Backend must be running on port 5000
-- Check browser console for connection errors
-- Verify WebSocket URL matches backend address
-
-#### 6. Empty Dashboard / No Parking Spots
-**Solutions:**
-- Run the initialization script:
-  ```bash
-  cd admin_backend
-  python reset_db.py
-  ```
-- Or manually insert spots via Supabase SQL Editor
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 lpr-parking-system/
-├── admin_frontend/              # React Frontend Application
-│   ├── src/
-│   │   ├── components/          # Reusable UI components
-│   │   │   ├── PlateConfirmModal.jsx   # License plate confirmation modal
-│   │   │   └── ...
-│   │   ├── pages/               # Main application pages
-│   │   │   ├── Dashboard.jsx    # Main dashboard with stats
-│   │   │   ├── InOut.jsx        # Entry/exit logs page
-│   │   │   └── ...
-│   │   ├── services/
-│   │   │   └── lprService.js    # API service layer
-│   │   ├── hooks/
-│   │   │   └── useWebSocket.js  # WebSocket custom hook
-│   │   ├── assets/              # Images and static files
-│   │   ├── App.jsx              # Root component
-│   │   └── main.jsx             # Application entry point
-│   ├── package.json
-│   ├── vite.config.js
-│   └── index.html
-│
-├── admin_backend/               # Flask Backend API
-│   ├── app.py                   # Main Flask application & Supabase setup
-│   ├── routes.py                # API endpoints & business logic
-│   ├── reset_db.py              # Database initialization script
-│   ├── supabase_schema.sql      # Database schema (run in Supabase)
-│   ├── requirements.txt         # Python dependencies
-│   └── .env                     # Environment variables (create this)
-│
-├── LICENSE
-└── README.md                    # This file
+|
++-- admin_backend/                  # Flask REST API (v2.0)
+|   +-- app.py                      # Flask app init + Supabase connection
+|   +-- routes.py                   # All API endpoints (60+ across 15 groups)
+|   +-- reset_db.py                 # Database reset + seed script
+|   +-- supabase_schema.sql         # Database schema (16 tables, v2.0)
+|   +-- requirements.txt            # Python dependencies
+|   +-- .env.example                # Template for environment variables
+|   +-- Dockerfile                  # Multi-stage production Docker build
+|
++-- admin_frontend/                 # React SPA (Single Page Application)
+|   +-- src/
+|   |   +-- App.jsx                 # Route definitions (11 routes)
+|   |   +-- main.jsx                # React DOM mount point
+|   |   +-- index.css               # Tailwind config + custom theme
+|   |   |
+|   |   +-- pages/
+|   |   |   +-- Home.jsx            # Public landing page
+|   |   |   +-- SignIn.jsx          # Login form
+|   |   |   +-- SignUp.jsx          # Registration form
+|   |   |   +-- admin/
+|   |   |       +-- Facilities.jsx  # Facility selection grid (live data)
+|   |   |       +-- Dashboard.jsx   # Live overview: spots, map, stats
+|   |   |       +-- InOut.jsx       # Entry/exit log table + mini map
+|   |   |       +-- LiveFeed.jsx    # Camera feeds + plate confirmation
+|   |   |       +-- Users.jsx       # User management (roles, status)
+|   |   |       +-- Vehicles.jsx    # Vehicle registry (search, deactivate)
+|   |   |       +-- Reservations.jsx  # Reservation management
+|   |   |
+|   |   +-- components/
+|   |   |   +-- Navbar.jsx          # Top nav bar (Home page)
+|   |   |   +-- Sidebar.jsx         # Side nav (admin pages, logout)
+|   |   |   +-- ParkingMap.jsx      # Visual parking grid
+|   |   |   +-- CameraTile.jsx      # Single camera feed tile
+|   |   |   +-- PlateConfirmModal.jsx  # Plate detection approval dialog
+|   |   |   +-- FacilityCard.jsx    # Facility summary card (live occupancy)
+|   |   |   +-- ProgressBar.jsx     # Percentage bar
+|   |   |
+|   |   +-- services/
+|   |   |   +-- api.js              # Axios instance with JWT interceptor
+|   |   |   +-- lprService.js       # API client (40+ methods for all endpoints)
+|   |   |
+|   |   +-- hooks/
+|   |       +-- useWebSocket.js     # WebSocket hook for SentraAI events
+|   |
+|   +-- package.json
+|   +-- vite.config.js
+|   +-- index.html
+|   +-- Dockerfile
+|
++-- API_DOCUMENTATION.md            # Full API reference (v2.0)
++-- SETUP_GUIDE.md                  # Complete setup guide
++-- LICENSE
++-- README.md                       # This file
 ```
 
-## 🔌 API Endpoints
+## Configuration
 
-### Vehicle Management
+### Backend Environment Variables
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/vehicle/entry` | Record vehicle entry |
-| `POST` | `/api/vehicle/exit` | Process vehicle exit |
-| `GET` | `/api/vehicles/active` | Get all currently parked vehicles |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SUPABASE_URL` | Yes | Supabase project URL |
+| `SUPABASE_KEY` | Yes | Supabase anon/public key |
 
-### Parking Spots
+### Frontend Environment Variables (optional)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/spots` | Get all parking spots |
-| `GET` | `/api/spots/available` | Get available spots count |
+Set these in a `.env` file in `admin_frontend/`:
 
-### Statistics
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_URL` | `http://127.0.0.1:5000/api` | Backend API base URL |
+| `VITE_WS_URL` | `ws://127.0.0.1:5001/api/ws` | SentraAI WebSocket URL |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/stats` | Get dashboard statistics |
-| `GET` | `/api/sessions/recent` | Get recent parking sessions |
+## Running the Full System
 
-### WebSocket
-
-| Endpoint | Description |
-|----------|-------------|
-| `WS /ws` | Real-time updates for vehicle entry/exit |
-
-## 🔗 Integration with SentraAI
-
-This system is designed to work seamlessly with **SentraAI-model** for automated license plate recognition:
-
-1. **SentraAI detects** a license plate from camera feed
-2. **WebSocket notification** sent to frontend with plate number
-3. **Operator confirms** entry/exit via modal popup
-4. **This backend processes** the confirmation and updates database
-5. **Dashboard updates** in real-time via WebSocket
-
-See [SentraAI-model README](https://github.com/Project-Sentra/SentraAI-model) for AI service setup.
-
-## 🚀 Running the Full System
-
-To run the complete Sentra Parking System with AI capabilities:
-
-**Terminal 1 - Backend:**
 ```bash
-cd lpr-parking-system/admin_backend
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-python app.py
-```
+# Terminal 1 - Backend API
+cd admin_backend
+venv\Scripts\activate
+python app.py                    # http://127.0.0.1:5000
 
-**Terminal 2 - Frontend:**
-```bash
-cd lpr-parking-system/admin_frontend
-npm run dev
-```
+# Terminal 2 - Frontend
+cd admin_frontend
+npm run dev                      # http://localhost:5173
 
-**Terminal 3 - AI Service (Optional):**
-```bash
+# Terminal 3 - AI Service (optional)
 cd SentraAI-model/service
-uvicorn main:app --port 5001 --reload
+uvicorn main:app --port 5001     # http://127.0.0.1:5001
 ```
 
-Access Points:
-- 🖥️ Frontend: http://localhost:5173
-- 🔧 Backend API: http://localhost:5000
-- 🤖 AI Service: http://localhost:5001
+## Troubleshooting
 
-## 🛡️ Security Notes
+| Problem | Solution |
+|---------|----------|
+| `Missing SUPABASE_URL` error | Create `.env` from `.env.example` with your credentials |
+| `Port 5000 already in use` | Kill existing process or change port in `app.py` |
+| `ModuleNotFoundError: flask` | Activate venv: `venv\Scripts\activate` |
+| CORS errors in browser | Make sure Flask backend is running on port 5000 |
+| Empty dashboard / no spots | Run `python reset_db.py` to seed data |
+| WebSocket won't connect | SentraAI service must be running on port 5001 |
+| Login fails | Verify email first (check inbox/spam) |
 
-**⚠️ For Production Deployment:**
+## Security Notes
 
-1. **Never commit `.env` files** - Add to `.gitignore`
-2. **Use environment variables** for sensitive data
-3. **Enable Supabase RLS** policies properly
-4. **Use HTTPS** for all communications
-5. **Add authentication** for admin dashboard
-6. **Implement rate limiting** on APIs
-7. **Validate all inputs** server-side
+- Passwords are **bcrypt-hashed** via Supabase Auth (never stored in plain text)
+- All admin endpoints require a valid **JWT Bearer token**
+- Role-based access: `admin`, `operator`, `user`
+- Vehicle entry/exit and detection endpoints are **public** for LPR service integration
+- For production: enable strict CORS origins, use HTTPS, enable Supabase RLS policies
+- Never commit `.env` files (they are in `.gitignore`)
 
-## 📝 License
+## Related Repositories
+
+| Repository | Description |
+|------------|-------------|
+| [SentraAI-model](https://github.com/Project-Sentra/SentraAI-model) | License Plate Recognition AI Service |
+| [Sentra-Mobile-App](https://github.com/Project-Sentra/Sentra-Mobile-App) | Flutter mobile application (uses same API) |
+| [Sentra-Infrastructure](https://github.com/Project-Sentra/Sentra-Infrastructure) | AWS deployment & infrastructure as code |
+
+## License
 
 This project is part of the Sentra Parking System ecosystem.
 
-## 🤝 Related Repositories
-
-- **SentraAI-model** - License Plate Recognition AI Service
-- **Sentra-Mobile-App** - Flutter mobile application
-- **Sentra-Infrastructure** - Deployment and infrastructure as code
-
-## 📞 Support
-
-For issues or questions:
-1. Check the Troubleshooting section above
-2. Review Supabase logs in the dashboard
-3. Check browser console for frontend errors
-4. Review Flask terminal output for backend errors
-
 ---
 
-Made with ❤️ by the Sentra Team
-
+Made with love by the Sentra Team

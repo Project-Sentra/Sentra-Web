@@ -1,24 +1,44 @@
+/**
+ * Dashboard.jsx - Main Facility Overview Page (v2.0)
+ * ====================================================
+ * Displays real-time parking facility status including:
+ *   - Stat cards: occupied slots, today's revenue, free slots, LPR status
+ *   - Interactive parking floor plan (ParkingMap component)
+ *   - System reset button (clears all sessions for demo purposes)
+ *   - Recent plate detections from the LPR AI service
+ *
+ * Data Sources:
+ *   - Dashboard stats: polled every 5s from GET /api/dashboard/stats
+ *   - Parking spots: polled every 3s from GET /api/facilities/:id/spots
+ *   - LPR status + detections: polled every 5s from backend
+ */
+
 import React, { useEffect, useState } from "react";
-import api from "../../services/api";
+import { useParams } from "react-router-dom";
 import Sidebar from "../../components/Sidebar";
 import ParkingMap from "../../components/ParkingMap";
 import lprService from "../../services/lprService";
 
 export default function Dashboard() {
+  const { facilityId } = useParams();
+  const fid = parseInt(facilityId) || 1;
+
   const [spots, setSpots] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [facilityName, setFacilityName] = useState("Parking Facility");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lprStatus, setLprStatus] = useState({ connected: false });
   const [recentDetections, setRecentDetections] = useState([]);
 
+  /** Fetch spots for the parking map */
   async function fetchSpots() {
     try {
-      const { data } = await api.get("/spots");
-      setSpots(data?.spots ?? []);
+      const data = await lprService.getSpots(fid);
+      setSpots(data);
       setError(null);
     } catch (err) {
       console.error("Failed to fetch spots", err);
-      // Disable error spamming
       if (err.response) {
         setError("Cannot reach backend. Is Flask running on port 5000?");
       }
@@ -27,48 +47,84 @@ export default function Dashboard() {
     }
   }
 
+  /** Fetch dashboard stats (real revenue, counts) */
+  async function fetchStats() {
+    try {
+      const data = await lprService.getDashboardStats(fid);
+      setStats(data);
+    } catch (err) {
+      console.error("Failed to fetch stats", err);
+    }
+  }
+
+  /** Fetch facility name */
+  async function fetchFacility() {
+    try {
+      const data = await lprService.getFacility(fid);
+      if (data.facility) setFacilityName(data.facility.name);
+    } catch (err) {
+      console.error("Failed to fetch facility", err);
+    }
+  }
+
   async function handleResetSystem() {
     if (!window.confirm("Are you sure you want to reset all parking spots and clear history?")) {
       return;
     }
-    
     try {
-      await api.post("/reset-system");
+      await lprService.resetSystem(fid);
       fetchSpots();
+      fetchStats();
     } catch (err) {
       console.error("Failed to reset system", err);
       alert("Failed to reset system: " + (err.response?.data?.message || err.message));
     }
   }
 
+  // Fetch facility name once
+  useEffect(() => { fetchFacility(); }, [fid]);
+
+  // Poll spots every 3 seconds
   useEffect(() => {
     fetchSpots();
-    const id = setInterval(fetchSpots, 1000);
+    const id = setInterval(fetchSpots, 3000);
     return () => clearInterval(id);
-  }, []);
+  }, [fid]);
+
+  // Poll stats every 5 seconds
+  useEffect(() => {
+    fetchStats();
+    const id = setInterval(fetchStats, 5000);
+    return () => clearInterval(id);
+  }, [fid]);
 
   // Fetch LPR status and recent detections
   useEffect(() => {
     async function fetchLprData() {
       const status = await lprService.checkBackendLprStatus();
       setLprStatus(status);
-      const logs = await lprService.getDetectionLogs(5);
+      const logs = await lprService.getDetectionLogs(5, fid);
       setRecentDetections(logs);
     }
     fetchLprData();
     const lprInterval = setInterval(fetchLprData, 5000);
     return () => clearInterval(lprInterval);
-  }, []);
+  }, [fid]);
 
-  const occupiedCount = spots.filter((s) => s.is_occupied).length;
-  const totalSpots = spots.length || 32;
+  // Derive occupancy from either stats or raw spots
+  const occupiedCount = stats?.spots?.occupied ?? spots.filter((s) => s.is_occupied).length;
+  const totalSpots = stats?.spots?.total ?? (spots.length || 32);
+  const freeSlots = stats?.spots?.available ?? (totalSpots - occupiedCount);
+  const todayRevenue = stats?.today?.revenue ?? 0;
+  const todayEntries = stats?.today?.entries ?? 0;
+
   const busyIndices = spots
     .filter((s) => s.is_occupied)
-    .map((s) => s.id - 1);
+    .map((_, i) => spots.indexOf(spots.filter(s => s.is_occupied)[i]));
 
   return (
     <div className="flex h-screen bg-sentraBlack text-white overflow-hidden">
-      <Sidebar facilityName="Downtown Parking" />
+      <Sidebar facilityName={facilityName} />
 
       <main className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-end mb-8">
@@ -80,7 +136,7 @@ export default function Dashboard() {
             <p className="text-sm text-gray-400">Live Status</p>
             <div className="flex items-center gap-2 justify-end">
               <span className={`w-3 h-3 rounded-full animate-pulse ${error ? "bg-red-500" : "bg-green-500"}`}></span>
-              <span className={error ? "text-red-500 font-bold" : "text-[#e2e600] font-bold"}>
+              <span className={error ? "text-red-500 font-bold" : "text-sentraYellow font-bold"}>
                 {error ? "DISCONNECTED" : "CONNECTED"}
               </span>
             </div>
@@ -103,11 +159,14 @@ export default function Dashboard() {
           </div>
           <div className="bg-[#171717] border border-[#232323] p-6 rounded-2xl">
             <p className="text-gray-400 text-sm">Today's Revenue</p>
-            <p className="text-4xl font-bold mt-2 text-[#e2e600]">LKR 87,000</p>
+            <p className="text-4xl font-bold mt-2 text-sentraYellow">
+              LKR {todayRevenue.toLocaleString()}
+            </p>
+            <p className="text-gray-600 text-xs mt-1">{todayEntries} entries today</p>
           </div>
           <div className="bg-[#171717] border border-[#232323] p-6 rounded-2xl">
             <p className="text-gray-400 text-sm">Free Slots</p>
-            <p className="text-4xl font-bold mt-2 text-green-400">{totalSpots - occupiedCount}</p>
+            <p className="text-4xl font-bold mt-2 text-green-400">{freeSlots}</p>
           </div>
           <div className="bg-[#171717] border border-[#232323] p-6 rounded-2xl">
             <p className="text-gray-400 text-sm">LPR System</p>
@@ -163,7 +222,7 @@ export default function Dashboard() {
                     className="flex items-center justify-between p-3 bg-[#1f1f1f] rounded-xl"
                   >
                     <div>
-                      <div className="bg-[#e2e600] px-2 py-0.5 rounded inline-block">
+                      <div className="bg-sentraYellow px-2 py-0.5 rounded inline-block">
                         <span className="text-black font-bold text-sm">{det.plate_number}</span>
                       </div>
                       <p className="text-gray-500 text-xs mt-1">{det.camera_id}</p>

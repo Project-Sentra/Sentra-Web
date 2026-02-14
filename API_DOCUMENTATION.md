@@ -1,367 +1,352 @@
-# Sentra LPR Parking System - API Documentation
+﻿# Sentra LPR Parking System - API Documentation (v2.0)
+
+Complete REST API reference for the Sentra LPR Parking System backend.
+**Base URL:** `http://127.0.0.1:5000/api`
+
+---
 
 ## Table of Contents
-1. [Overview](#overview)
-2. [Base URL](#base-url)
-3. [Authentication](#authentication)
-4. [Response Format](#response-format)
-5. [Error Codes](#error-codes)
-6. [Authentication Endpoints](#authentication-endpoints)
-7. [Parking Management Endpoints](#parking-management-endpoints)
-8. [Vehicle Entry/Exit Endpoints](#vehicle-entryexit-endpoints)
-9. [Camera Management Endpoints](#camera-management-endpoints)
-10. [Detection Logs Endpoints](#detection-logs-endpoints)
-11. [System Management Endpoints](#system-management-endpoints)
-12. [Data Models](#data-models)
+
+1. [Authentication](#1-authentication)
+2. [User Management (Admin)](#2-user-management-admin)
+3. [Vehicles](#3-vehicles)
+4. [Facilities](#4-facilities)
+5. [Parking Spots](#5-parking-spots)
+6. [Reservations](#6-reservations)
+7. [Parking Sessions (Entry/Exit)](#7-parking-sessions-entryexit)
+8. [Payments & Wallet](#8-payments--wallet)
+9. [Subscriptions](#9-subscriptions)
+10. [Cameras](#10-cameras)
+11. [Gates](#11-gates)
+12. [Detection Logs](#12-detection-logs)
+13. [Notifications](#13-notifications)
+14. [Dashboard / Analytics](#14-dashboard--analytics)
+15. [System](#15-system)
+16. [Backward Compatibility](#16-backward-compatibility)
 
 ---
 
-## Overview
+## Auth Headers
 
-The Sentra LPR (License Plate Recognition) Parking System API provides a comprehensive REST API for managing parking operations, including vehicle entry/exit, parking spot allocation, camera configuration, and real-time license plate detection logging.
-
-**Version:** 1.0  
-**Language:** Python/Flask  
-**Database:** Supabase (PostgreSQL)  
-**Authentication:** JWT Bearer Token
-
----
-
-## Base URL
+All protected endpoints require a JWT token in the `Authorization` header:
 
 ```
-http://localhost:5000/api
-```
-
-For production deployments:
-```
-https://your-domain.com/api
-```
-
----
-
-## Authentication
-
-Most endpoints require authentication using JWT Bearer tokens obtained from the login endpoint.
-
-### Authentication Header Format
-```http
 Authorization: Bearer <access_token>
 ```
 
-### Protected Endpoints
-All endpoints marked with 🔒 require authentication.
+Tokens are obtained from the `/api/auth/login` endpoint.
+
+**Role-based access:**
+- `@require_auth` - Any authenticated user (admin, user, operator)
+- `@require_admin` - Admin or operator only
 
 ---
 
-## Response Format
+## 1. Authentication
 
-### Success Response
+### POST `/api/auth/signup`
+
+Register a new user (admin dashboard or mobile app).
+
+**Body:**
 ```json
 {
-  "message": "Success message",
-  "data": { ... }
+  "email": "user@example.com",
+  "password": "secure123",
+  "full_name": "John Doe",
+  "phone": "+94771234567",
+  "role": "user"
 }
 ```
 
-### Error Response
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| email | Yes | - | Unique email address |
+| password | Yes | - | Min 6 characters |
+| full_name | No | "" | Display name |
+| phone | No | "" | Phone number |
+| role | No | "user" | `admin`, `user`, or `operator` |
+
+**Response (201):**
 ```json
 {
-  "message": "Error description"
-}
-```
-
----
-
-## Error Codes
-
-| Status Code | Description |
-|-------------|-------------|
-| 200 | Success |
-| 201 | Created |
-| 400 | Bad Request - Invalid input |
-| 401 | Unauthorized - Authentication failed |
-| 404 | Not Found - Resource doesn't exist |
-| 409 | Conflict - Resource already exists |
-| 500 | Internal Server Error |
-| 503 | Service Unavailable |
-
----
-
-## Authentication Endpoints
-
-### 1. User Sign Up
-
-**Endpoint:** `POST /api/signup`
-
-**Description:** Register a new admin user.
-
-**Request Body:**
-```json
-{
-  "email": "admin@example.com",
-  "password": "securePassword123"
-}
-```
-
-**Validation:**
-- Email is required
-- Password must be at least 6 characters
-
-**Success Response (201):**
-```json
-{
-  "message": "User created successfully! Please check your email to verify.",
+  "message": "Account created! Please check your email to verify.",
   "user_id": "uuid-string"
 }
 ```
 
-**Error Responses:**
-- `400` - Missing email/password or password too short
-- `400` - User already exists
-- `500` - Server error
-
 ---
 
-### 2. User Login
+### POST `/api/auth/login`
 
-**Endpoint:** `POST /api/login`
+Authenticate and receive JWT tokens.
 
-**Description:** Authenticate user and receive access tokens.
-
-**Request Body:**
+**Body:**
 ```json
 {
-  "email": "admin@example.com",
-  "password": "securePassword123"
+  "email": "user@example.com",
+  "password": "secure123"
 }
 ```
 
-**Success Response (200):**
+**Response (200):**
 ```json
 {
   "message": "Login successful!",
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "refresh_token_string",
+  "access_token": "eyJhbGci...",
+  "refresh_token": "refresh-token...",
   "user": {
-    "id": "uuid-string",
-    "email": "admin@example.com",
+    "id": "supabase-auth-uuid",
+    "db_id": 1,
+    "email": "user@example.com",
+    "full_name": "John Doe",
+    "phone": "+94771234567",
     "role": "admin"
   }
 }
 ```
 
-**Error Responses:**
-- `400` - Missing email/password
-- `401` - Invalid credentials
+---
+
+### GET `/api/auth/me` (protected)
+
+Get current user's profile including wallet balance.
+
+**Response (200):**
+```json
+{
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "full_name": "John Doe",
+    "phone": "+94771234567",
+    "role": "admin",
+    "is_active": true,
+    "wallet_balance": 5000,
+    "created_at": "2024-01-15T10:00:00Z"
+  }
+}
+```
 
 ---
 
-## Parking Management Endpoints
+### PUT `/api/auth/me` (protected)
 
-### 3. Get All Parking Spots 🔒
+Update current user's profile.
 
-**Endpoint:** `GET /api/spots`
-
-**Description:** Retrieve all parking spots and their occupancy status.
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
+**Body:**
+```json
+{
+  "full_name": "John Updated",
+  "phone": "+94779876543"
+}
 ```
 
-**Success Response (200):**
+---
+
+## 2. User Management (Admin)
+
+### GET `/api/admin/users` (admin only)
+
+List all users. Optional `?role=admin|user|operator` filter.
+
+**Response (200):**
+```json
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "admin@sentra.lk",
+      "full_name": "Admin One",
+      "phone": "+94771234567",
+      "role": "admin",
+      "is_active": true,
+      "created_at": "2024-01-15T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET `/api/admin/users/:id` (admin only)
+
+Get user details with their registered vehicles.
+
+---
+
+### PUT `/api/admin/users/:id` (admin only)
+
+Update user role or active status.
+
+**Body:**
+```json
+{
+  "role": "operator",
+  "is_active": false
+}
+```
+
+---
+
+## 3. Vehicles
+
+### POST `/api/vehicles` (protected)
+
+Register a new vehicle for the current user.
+
+**Body:**
+```json
+{
+  "plate_number": "WP CA-1234",
+  "make": "Toyota",
+  "model": "Corolla",
+  "color": "White",
+  "year": 2022,
+  "vehicle_type": "car"
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| plate_number | Yes | Unique license plate |
+| make | No | Manufacturer |
+| model | No | Model name |
+| color | No | Vehicle color |
+| year | No | Manufacturing year |
+| vehicle_type | No | `car`, `motorcycle`, `truck`, `van` |
+
+**Response (201):**
+```json
+{
+  "message": "Vehicle registered",
+  "vehicle": { "..." }
+}
+```
+
+---
+
+### GET `/api/vehicles` (protected)
+
+Get vehicles. Regular users see only their own. Admin can pass `?all=true` to see all vehicles with owner info.
+
+---
+
+### PUT `/api/vehicles/:id` (protected)
+
+Update vehicle details (make, model, color, year, vehicle_type, is_active).
+
+---
+
+### DELETE `/api/vehicles/:id` (protected)
+
+Soft-delete (deactivate) a vehicle.
+
+---
+
+### GET `/api/vehicles/lookup/:plate_number` (public)
+
+Look up a vehicle by plate number. Used by the LPR service to check if a detected plate is registered.
+
+**Response (200):**
+```json
+{
+  "registered": true,
+  "vehicle": {
+    "id": 1,
+    "plate_number": "WP CA-1234",
+    "make": "Toyota",
+    "model": "Corolla",
+    "users": {
+      "id": 1,
+      "email": "user@example.com",
+      "full_name": "John Doe"
+    }
+  },
+  "has_subscription": false,
+  "subscription": null
+}
+```
+
+---
+
+## 4. Facilities
+
+### GET `/api/facilities` (public)
+
+List all active parking facilities with live occupancy counts.
+
+**Response (200):**
+```json
+{
+  "facilities": [
+    {
+      "id": 1,
+      "name": "Sentra Main Parking",
+      "address": "123 Colombo Road",
+      "city": "Colombo",
+      "total_spots": 32,
+      "occupied_spots": 12,
+      "reserved_spots": 3,
+      "available_spots": 17,
+      "hourly_rate": 150,
+      "operating_hours_start": "06:00",
+      "operating_hours_end": "22:00"
+    }
+  ]
+}
+```
+
+---
+
+### POST `/api/facilities` (admin only)
+
+Create a new parking facility.
+
+**Body:**
+```json
+{
+  "name": "Sentra Main Parking",
+  "address": "123 Colombo Road",
+  "city": "Colombo",
+  "total_spots": 32,
+  "hourly_rate": 150,
+  "operating_hours_start": "06:00",
+  "operating_hours_end": "22:00"
+}
+```
+
+---
+
+### GET `/api/facilities/:id` (public)
+
+Get facility details with floors and spot summary.
+
+---
+
+### PUT `/api/facilities/:id` (admin only)
+
+Update facility details.
+
+---
+
+## 5. Parking Spots
+
+### GET `/api/facilities/:id/spots` (public)
+
+Get all parking spots for a facility.
+
+**Response (200):**
 ```json
 {
   "spots": [
     {
       "id": 1,
-      "name": "A-01",
-      "is_occupied": false
-    },
-    {
-      "id": 2,
-      "name": "A-02",
-      "is_occupied": true
-    }
-  ]
-}
-```
-
-**Error Responses:**
-- `401` - Authentication required
-- `500` - Error fetching spots
-
----
-
-### 4. Initialize Parking Spots
-
-**Endpoint:** `POST /api/init-spots`
-
-**Description:** One-time setup to create 32 parking spots (A-01 to A-32).
-
-**Success Response (201):**
-```json
-{
-  "message": "32 Parking spots created successfully!"
-}
-```
-
-**Error Responses:**
-- `400` - Spots already initialized
-
----
-
-### 5. Get Parking Logs 🔒
-
-**Endpoint:** `GET /api/logs`
-
-**Description:** Retrieve recent parking session history (last 50 entries).
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
-```
-
-**Success Response (200):**
-```json
-{
-  "logs": [
-    {
-      "id": 1,
-      "plate_number": "ABC-1234",
-      "spot": "A-01",
-      "entry_time": "2026-01-21T10:30:00",
-      "exit_time": "2026-01-21T12:45:00",
-      "duration_minutes": 135,
-      "amount_lkr": 300
-    }
-  ]
-}
-```
-
----
-
-## Vehicle Entry/Exit Endpoints
-
-### 6. Vehicle Entry
-
-**Endpoint:** `POST /api/vehicle/entry`
-
-**Description:** Register a vehicle entry and assign a parking spot.
-
-**Request Body:**
-```json
-{
-  "plate_number": "ABC-1234"
-}
-```
-
-**Business Logic:**
-1. Checks if vehicle is already parked (active session exists)
-2. Finds the first available free spot
-3. Marks spot as occupied
-4. Creates parking session with entry timestamp
-
-**Success Response (200):**
-```json
-{
-  "message": "Vehicle ABC-1234 parked at A-01",
-  "spot": "A-01",
-  "status": "assigned"
-}
-```
-
-**Error Responses:**
-- `400` - Missing plate_number
-- `404` - Parking is full
-- `409` - Vehicle already parked
-
----
-
-### 7. Vehicle Exit
-
-**Endpoint:** `POST /api/vehicle/exit`
-
-**Description:** Process vehicle exit, calculate charges, and free the parking spot.
-
-**Request Body:**
-```json
-{
-  "plate_number": "ABC-1234"
-}
-```
-
-**Pricing Logic:**
-- Rate: LKR 150 per hour
-- Minimum charge: 1 hour
-- Billing: Rounded up to nearest hour
-
-**Success Response (200):**
-```json
-{
-  "message": "Spot A-01 is now free!",
-  "duration_minutes": 135,
-  "amount_charged": 300
-}
-```
-
-**Error Responses:**
-- `400` - Missing plate_number
-- `404` - No active session found
-
----
-
-## Camera Management Endpoints
-
-### 8. Get LPR Service Status 🔒
-
-**Endpoint:** `GET /api/lpr/status`
-
-**Description:** Check connection status with SentraAI LPR service.
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
-```
-
-**Success Response (200):**
-```json
-{
-  "connected": true,
-  "service": "SentraAI",
-  "version": "1.0.0",
-  "cameras_active": 2,
-  "camera_mode": "live"
-}
-```
-
-**Error Responses:**
-- `503` - Service unavailable or disconnected
-
----
-
-### 9. Get All Cameras 🔒
-
-**Endpoint:** `GET /api/cameras`
-
-**Description:** Retrieve all configured cameras.
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
-```
-
-**Success Response (200):**
-```json
-{
-  "cameras": [
-    {
-      "id": 1,
-      "camera_id": "entry_cam_01",
-      "name": "Entry Gate 01",
-      "type": "entry",
-      "source_url": "rtsp://camera-ip:554/stream",
+      "facility_id": 1,
+      "spot_name": "A-01",
+      "spot_type": "regular",
+      "is_occupied": false,
+      "is_reserved": false,
       "is_active": true
     }
   ]
@@ -370,281 +355,500 @@ Authorization: Bearer <access_token>
 
 ---
 
-### 10. Add Camera 🔒
+### POST `/api/facilities/:id/spots/init` (admin only)
 
-**Endpoint:** `POST /api/cameras`
+Initialize parking spots for a facility (bulk create).
 
-**Description:** Add a new camera configuration.
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
+**Body:**
 ```json
 {
-  "camera_id": "entry_cam_02",
-  "name": "Entry Gate 02",
-  "type": "entry",
-  "source_url": "rtsp://192.168.1.100:554/stream"
-}
-```
-
-**Validation:**
-- `camera_id`, `name`, and `type` are required
-- `type` must be either "entry" or "exit"
-
-**Success Response (201):**
-```json
-{
-  "message": "Camera Entry Gate 02 added successfully",
-  "id": 3
-}
-```
-
-**Error Responses:**
-- `400` - Missing required fields or invalid type
-- `409` - Camera ID already exists
-
----
-
-### 11. Delete Camera 🔒
-
-**Endpoint:** `DELETE /api/cameras/<camera_id>`
-
-**Description:** Remove a camera configuration.
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
-```
-
-**Success Response (200):**
-```json
-{
-  "message": "Camera entry_cam_02 deleted"
-}
-```
-
-**Error Responses:**
-- `404` - Camera not found
-
----
-
-### 12. Initialize Default Cameras 🔒
-
-**Endpoint:** `POST /api/cameras/init`
-
-**Description:** Create default entry and exit cameras.
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
-```
-
-**Success Response (201):**
-```json
-{
-  "message": "2 cameras initialized successfully"
-}
-```
-
-**Error Responses:**
-- `400` - Cameras already initialized
-
----
-
-## Detection Logs Endpoints
-
-### 13. Get Detection Logs 🔒
-
-**Endpoint:** `GET /api/detection-logs`
-
-**Description:** Retrieve recent plate detection logs from LPR service.
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
-```
-
-**Query Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| limit | integer | 50 | Number of logs to retrieve |
-
-**Example:**
-```
-GET /api/detection-logs?limit=100
-```
-
-**Success Response (200):**
-```json
-{
-  "logs": [
-    {
-      "id": 1,
-      "camera_id": "entry_cam_01",
-      "plate_number": "ABC-1234",
-      "confidence": 0.95,
-      "detected_at": "2026-01-21T10:30:00",
-      "action_taken": "entry",
-      "vehicle_class": "car"
-    }
-  ]
+  "count": 32,
+  "prefix": "A",
+  "spot_type": "regular"
 }
 ```
 
 ---
 
-### 14. Add Detection Log
+### PUT `/api/spots/:id` (admin only)
 
-**Endpoint:** `POST /api/detection-logs`
+Update spot type or active status.
 
-**Description:** Log a new plate detection (typically called by LPR service).
+---
 
-**Note:** This endpoint is public (no authentication required) to allow the LPR service to send detections.
+## 6. Reservations
 
-**Request Body:**
+### POST `/api/reservations` (protected)
+
+Book a parking spot in advance.
+
+**Body:**
 ```json
 {
-  "camera_id": "entry_cam_01",
-  "plate_number": "ABC-1234",
+  "vehicle_id": 1,
+  "facility_id": 1,
+  "reserved_start": "2024-12-20T09:00:00Z",
+  "reserved_end": "2024-12-20T17:00:00Z",
+  "spot_type": "regular"
+}
+```
+
+**Response (201):**
+```json
+{
+  "message": "Reservation confirmed",
+  "reservation": {
+    "id": 1,
+    "spot_id": 5,
+    "status": "confirmed",
+    "qr_code": "uuid-for-check-in",
+    "amount": 200
+  }
+}
+```
+
+The system automatically:
+- Finds an available spot of the requested type
+- Marks it as reserved
+- Creates a QR code for check-in
+- Sends a notification to the user
+
+---
+
+### GET `/api/reservations` (protected)
+
+Get reservations. Users see their own. Admin can pass `?all=true`.
+Optional filter: `?status=confirmed|pending|cancelled|completed|checked_in|no_show`
+
+---
+
+### PUT `/api/reservations/:id` (protected)
+
+Update or cancel a reservation.
+
+**Cancel:**
+```json
+{
+  "action": "cancel"
+}
+```
+
+**Update times:**
+```json
+{
+  "reserved_start": "2024-12-20T10:00:00Z",
+  "reserved_end": "2024-12-20T18:00:00Z"
+}
+```
+
+---
+
+## 7. Parking Sessions (Entry/Exit)
+
+### POST `/api/sessions/entry` (public)
+
+Register a vehicle entering a facility. Called by the LPR service or manually by admin.
+
+**Body:**
+```json
+{
+  "plate_number": "WP CA-1234",
+  "facility_id": 1,
+  "entry_method": "lpr"
+}
+```
+
+**Entry Flow:**
+1. Checks if vehicle is already parked (prevents duplicates)
+2. Looks up plate in vehicles table (registered?)
+3. Checks for active reservation - uses reserved spot
+4. Checks for active subscription - marks session type
+5. Otherwise finds first free spot (walk-in)
+6. Marks spot occupied, creates session, notifies user
+
+**Response (200):**
+```json
+{
+  "message": "Vehicle WP CA-1234 parked at A-05",
+  "spot": "A-05",
+  "session_type": "reserved",
+  "is_registered": true,
+  "gate_action": "open",
+  "session_id": 42
+}
+```
+
+| gate_action | Meaning |
+|-------------|---------|
+| `open` | Registered vehicle - auto-open gate |
+| `pending` | Unregistered - await manual approval |
+| `deny` | Vehicle already parked or no spots |
+
+---
+
+### POST `/api/sessions/exit` (public)
+
+Process a vehicle exiting.
+
+**Body:**
+```json
+{
+  "plate_number": "WP CA-1234",
+  "payment_method": "wallet"
+}
+```
+
+**Exit Flow:**
+1. Finds active session for this plate
+2. Frees the parking spot
+3. Calculates fee (hourly rate x hours, rounded up)
+4. Subscription sessions = LKR 0 (waived)
+5. Wallet payment auto-deducted if sufficient balance
+6. Closes session and sends exit notification
+
+**Response (200):**
+```json
+{
+  "message": "Spot A-05 is now free!",
+  "duration_minutes": 127,
+  "amount": 450,
+  "payment_status": "paid",
+  "gate_action": "open"
+}
+```
+
+---
+
+### GET `/api/sessions` (protected)
+
+Get session history. Users see sessions for their vehicles only.
+Admin can pass `?all=true`.
+
+**Query params:**
+
+| Param | Description |
+|-------|-------------|
+| facility_id | Filter by facility |
+| active | `true` = only sessions without exit_time |
+| all | `true` = all sessions (admin) |
+| limit | Max results (default 50) |
+
+---
+
+## 8. Payments & Wallet
+
+### GET `/api/wallet` (protected)
+
+Get current user's wallet balance.
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "user_id": 1,
+  "balance": 5000,
+  "currency": "LKR"
+}
+```
+
+---
+
+### POST `/api/wallet/topup` (protected)
+
+Add funds to wallet.
+
+**Body:**
+```json
+{
+  "amount": 1000,
+  "payment_method": "card"
+}
+```
+
+---
+
+### GET `/api/payments` (protected)
+
+Get payment history. Admin can pass `?all=true` for all users.
+
+---
+
+## 9. Subscriptions
+
+### POST `/api/subscriptions` (protected)
+
+Purchase a monthly pass. Wallet balance must be sufficient.
+
+**Body:**
+```json
+{
+  "facility_id": 1,
+  "vehicle_id": 1,
+  "plan_id": 3
+}
+```
+
+---
+
+### GET `/api/subscriptions` (protected)
+
+Get subscriptions. Admin with `?all=true` sees all.
+
+---
+
+### PUT `/api/subscriptions/:id` (protected)
+
+Cancel or toggle auto-renew.
+
+```json
+{ "action": "cancel" }
+```
+or
+```json
+{ "auto_renew": true }
+```
+
+---
+
+## 10. Cameras
+
+### GET `/api/cameras` (admin only)
+
+List cameras. Optional `?facility_id=1`.
+
+---
+
+### POST `/api/cameras` (admin only)
+
+Add a camera.
+
+**Body:**
+```json
+{
+  "facility_id": 1,
+  "camera_id": "CAM-ENTRY-01",
+  "name": "Main Entry Camera",
+  "camera_type": "entry",
+  "source_url": "rtsp://192.168.1.100/stream",
+  "gate_id": 1
+}
+```
+
+---
+
+### DELETE `/api/cameras/:id` (admin only)
+
+Remove a camera.
+
+---
+
+## 11. Gates
+
+### GET `/api/gates` (admin only)
+
+List gates. Optional `?facility_id=1`.
+
+---
+
+### POST `/api/gates` (admin only)
+
+Add a gate.
+
+**Body:**
+```json
+{
+  "facility_id": 1,
+  "name": "Main Entry Gate",
+  "gate_type": "entry",
+  "hardware_ip": "192.168.1.200"
+}
+```
+
+---
+
+### POST `/api/gates/:id/open` (admin only)
+
+Manually open a gate. Logs a gate event.
+
+---
+
+### POST `/api/gates/:id/close` (admin only)
+
+Manually close a gate. Logs a gate event.
+
+---
+
+## 12. Detection Logs
+
+### GET `/api/detections` (admin only)
+
+Get LPR detection event logs. Optional `?facility_id=1&limit=50`.
+
+---
+
+### POST `/api/detections` (public)
+
+Log a detection from the LPR service.
+
+**Body:**
+```json
+{
+  "camera_id": "CAM-ENTRY-01",
+  "facility_id": 1,
+  "plate_number": "WP CA-1234",
   "confidence": 0.95,
-  "action_taken": "pending",
-  "vehicle_class": "car"
+  "vehicle_class": "car",
+  "image_url": "https://storage.example.com/snapshot.jpg"
 }
 ```
 
-**Success Response (201):**
-```json
-{
-  "message": "Detection logged",
-  "id": 123
-}
-```
-
-**Error Responses:**
-- `400` - Missing camera_id or plate_number
+Auto-checks if the plate is registered and flags the detection.
 
 ---
 
-### 15. Update Detection Action 🔒
+### PATCH `/api/detections/:id/action` (admin only)
 
-**Endpoint:** `PATCH /api/detection-logs/<log_id>/action`
+Approve/reject a detection.
 
-**Description:** Update the action taken for a detection log (manual approval/rejection).
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
+**Body:**
 ```json
 {
   "action": "entry"
 }
 ```
 
-**Valid Actions:**
-- `entry` - Approved for vehicle entry
-- `exit` - Approved for vehicle exit
-- `ignored` - Detection ignored/rejected
-
-**Success Response (200):**
-```json
-{
-  "message": "Action updated to entry"
-}
-```
-
-**Error Responses:**
-- `400` - Invalid action value
-- `404` - Detection log not found
+Valid actions: `entry`, `exit`, `ignored`, `gate_opened`
 
 ---
 
-## System Management Endpoints
+## 13. Notifications
 
-### 16. Reset System
+### GET `/api/notifications` (protected)
 
-**Endpoint:** `POST /api/reset-system`
-
-**Description:** Clear all parking sessions and free all spots (for demo/testing purposes).
-
-**Warning:** This operation is destructive and cannot be undone.
-
-**Success Response (200):**
-```json
-{
-  "message": "System reset! All spots are now free."
-}
-```
-
-**Error Responses:**
-- `500` - Reset failed
+Get current user's notifications. Optional `?limit=50`.
 
 ---
 
-## Data Models
+### PUT `/api/notifications/:id/read` (protected)
 
-### Parking Spot
+Mark one notification as read.
+
+---
+
+### PUT `/api/notifications/read-all` (protected)
+
+Mark all notifications as read.
+
+---
+
+## 14. Dashboard / Analytics
+
+### GET `/api/dashboard/stats?facility_id=1` (admin only)
+
+Get dashboard statistics for a facility.
+
+**Response (200):**
 ```json
 {
-  "id": "integer",
-  "spot_name": "string (e.g., 'A-01')",
-  "is_occupied": "boolean"
+  "spots": {
+    "total": 32,
+    "occupied": 12,
+    "reserved": 3,
+    "available": 17
+  },
+  "today": {
+    "entries": 45,
+    "revenue": 87000,
+    "active_sessions": 12,
+    "reservations": 5
+  },
+  "system": {
+    "total_users": 150,
+    "total_vehicles": 89
+  }
 }
 ```
 
-### Parking Session
+---
+
+### GET `/api/dashboard/recent-activity` (admin only)
+
+Get recent sessions and detections. Optional `?facility_id=1&limit=20`.
+
+---
+
+## 15. System
+
+### POST `/api/system/reset` (admin only)
+
+Reset the system - clear all sessions, reservations, and free all spots.
+**DESTRUCTIVE operation.** Optional `facility_id` in body to reset only one facility.
+
+---
+
+### GET `/api/lpr/status` (admin only)
+
+Health check for the SentraAI LPR service (port 5001).
+
+**Response (200):**
 ```json
 {
-  "id": "integer",
-  "plate_number": "string",
-  "spot_name": "string",
-  "entry_time": "ISO 8601 datetime",
-  "exit_time": "ISO 8601 datetime or null",
-  "duration_minutes": "integer or null",
-  "amount_lkr": "integer or null"
+  "connected": true,
+  "cameras_active": 2,
+  "model_loaded": true
 }
 ```
 
-### Camera
+---
+
+## 16. Backward Compatibility
+
+The following v1 endpoints are aliased to their v2 equivalents so the existing frontend continues to work during migration:
+
+| v1 Endpoint | Maps To |
+|-------------|---------|
+| `POST /api/signup` | `/api/auth/signup` |
+| `POST /api/login` | `/api/auth/login` |
+| `GET /api/spots` | `/api/facilities/:first/spots` |
+| `POST /api/init-spots` | Creates facility + spots |
+| `POST /api/vehicle/entry` | `/api/sessions/entry` |
+| `POST /api/vehicle/exit` | `/api/sessions/exit` |
+| `GET /api/logs` | `/api/sessions` (formatted) |
+| `POST /api/reset-system` | `/api/system/reset` |
+| `GET /api/detection-logs` | `/api/detections` |
+| `POST /api/detection-logs` | `/api/detections` |
+| `PATCH /api/detection-logs/:id/action` | `/api/detections/:id/action` |
+
+---
+
+## Legend
+
+| Label | Meaning |
+|-------|---------|
+| (protected) | Requires JWT authentication (`@require_auth`) |
+| (admin only) | Admin/operator only (`@require_admin`) |
+| (public) | No authentication required |
+
+---
+
+## Error Responses
+
+All errors follow this format:
+
 ```json
 {
-  "id": "integer",
-  "camera_id": "string (unique)",
-  "name": "string",
-  "camera_type": "enum: 'entry' | 'exit'",
-  "source_url": "string (RTSP/HTTP URL or empty)",
-  "is_active": "boolean"
+  "message": "Description of what went wrong"
 }
 ```
 
-### Detection Log
-```json
-{
-  "id": "integer",
-  "camera_id": "string",
-  "plate_number": "string",
-  "confidence": "float (0.0 - 1.0)",
-  "detected_at": "ISO 8601 datetime",
-  "action_taken": "enum: 'pending' | 'entry' | 'exit' | 'ignored'",
-  "vehicle_class": "string (optional, e.g., 'car', 'truck', 'motorcycle')"
-}
-```
-
-### User
-```json
-{
-  "id": "uuid string",
-  "email": "string",
-  "role": "string (default: 'admin')",
-  "auth_user_id": "uuid string (Supabase Auth ID)"
-}
-```
+| Status | Meaning |
+|--------|---------|
+| 400 | Bad request / missing required fields |
+| 401 | Authentication required or token expired |
+| 403 | Insufficient permissions (not admin) |
+| 404 | Resource not found |
+| 409 | Conflict (e.g., duplicate plate, vehicle already parked) |
+| 500 | Server error |
 
 ---
 
@@ -659,50 +863,50 @@ The admin backend integrates with SentraAI LPR service running on `http://127.0.
 GET http://127.0.0.1:5001/api/health
 ```
 
-**Expected Response:**
-```json
-{
-  "service": "SentraAI",
-  "version": "1.0.0",
-  "cameras_active": 2,
-  "camera_mode": "live"
-}
+### WebSocket Events (via SentraAI)
+
+The React frontend connects directly to the SentraAI service (`ws://127.0.0.1:5001/api/ws`) for real-time events.
+The Flask backend does NOT serve WebSocket connections.
+
+WebSocket message types from SentraAI:
+- `plate_detected` - A license plate was recognized by a camera
+- `camera_status` - Camera online/offline status change
+- `processing_update` - Frame processing progress
+- `pong` - Heartbeat response
+
+See `admin_frontend/src/hooks/useWebSocket.js` for the client implementation.
+
+---
+
+## Testing Examples
+
+### Using cURL
+
+**Login:**
+```bash
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"password123"}'
 ```
 
-### WebSocket Events (Future Enhancement)
+**Get Facilities:**
+```bash
+curl -X GET http://localhost:5000/api/facilities
+```
 
-Real-time updates for:
-- Vehicle entry/exit events
-- Spot occupancy changes
-- Detection confirmations
+**Vehicle Entry:**
+```bash
+curl -X POST http://localhost:5000/api/sessions/entry \
+  -H "Content-Type: application/json" \
+  -d '{"plate_number":"WP CA-1234","facility_id":1}'
+```
 
----
-
-## Rate Limiting
-
-Currently, there are no rate limits implemented. For production deployment, consider implementing:
-- 100 requests per minute per IP for public endpoints
-- 1000 requests per minute for authenticated endpoints
-
----
-
-## CORS Configuration
-
-CORS is enabled for all origins in development mode. For production:
-- Restrict to specific frontend domains
-- Configure allowed methods: GET, POST, PATCH, DELETE
-- Configure allowed headers: Authorization, Content-Type
-
----
-
-## Security Best Practices
-
-1. **Always use HTTPS in production**
-2. **Rotate access tokens regularly** (implement refresh token flow)
-3. **Validate all input data** server-side
-4. **Implement request logging** for audit trails
-5. **Use environment variables** for sensitive configuration
-6. **Enable RLS (Row Level Security)** in Supabase
+**Vehicle Exit:**
+```bash
+curl -X POST http://localhost:5000/api/sessions/exit \
+  -H "Content-Type: application/json" \
+  -d '{"plate_number":"WP CA-1234"}'
+```
 
 ---
 
@@ -715,69 +919,10 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-anon-public-key
 ```
 
-Optional:
-```bash
-LPR_SERVICE_URL=http://127.0.0.1:5001
-FLASK_ENV=development
-```
+The SentraAI LPR service URL (`http://127.0.0.1:5001`) is currently hardcoded in `routes.py`.
 
 ---
 
-## Testing Examples
-
-### Using cURL
-
-**Login:**
-```bash
-curl -X POST http://localhost:5000/api/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"password123"}'
-```
-
-**Get Spots (with auth):**
-```bash
-curl -X GET http://localhost:5000/api/spots \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
-**Vehicle Entry:**
-```bash
-curl -X POST http://localhost:5000/api/vehicle/entry \
-  -H "Content-Type: application/json" \
-  -d '{"plate_number":"ABC-1234"}'
-```
-
-### Using Postman
-
-1. Create a new collection named "Sentra LPR API"
-2. Set base URL variable: `{{base_url}}` = `http://localhost:5000/api`
-3. Create authentication request and save token to environment
-4. Use `{{access_token}}` in Authorization header for protected routes
-
----
-
-## Changelog
-
-### Version 1.0.0 (January 2026)
-- Initial API release
-- Authentication with Supabase Auth
-- Parking spot management
-- Vehicle entry/exit processing
-- Camera configuration
-- Detection logging
-- System reset functionality
-
----
-
-## Support & Contact
-
-For API support and questions:
-- **Repository:** [github.com/Project-Sentra/lpr-parking-system](https://github.com/Project-Sentra/lpr-parking-system)
-- **Issues:** [GitHub Issues](https://github.com/Project-Sentra/lpr-parking-system/issues)
-- **Documentation:** See README.md for setup instructions
-
----
-
-**Document Version:** 1.0  
-**Last Updated:** January 21, 2026  
+**Document Version:** 2.0
+**Last Updated:** July 2025
 **Maintained By:** Project Sentra Team

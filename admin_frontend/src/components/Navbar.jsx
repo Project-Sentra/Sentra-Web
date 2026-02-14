@@ -1,15 +1,27 @@
+/**
+ * Navbar.jsx - Top Navigation Bar
+ * =================================
+ * Sticky header shown on the Home page. Contains:
+ *   - Sentra logo + brand name (links to /)
+ *   - Navigation links: Facilities, Sign In, Sign Up
+ *   - If logged in: shows Logout button instead of auth links
+ *   - Responsive: hamburger menu on mobile
+ *
+ * Auth detection: checks localStorage for "userEmail" to decide
+ * which buttons to show. On logout, clears auth data and redirects
+ * to /signin.
+ */
+
 import React, { useState, useEffect } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-// ඔබ VS Code හිදී පහත පේළිය uncomment කරන්න
 import LogoMain from "../assets/logo_notext.png";
-//const LogoMain = ""; // VS Code හිදී මෙය මකා දමන්න
 
 export default function Navbar() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false);        // Mobile menu open/close
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
 
-  // 1. Component එක load වන විට පරිශීලකයා ලොග් වී ඇත්දැයි බලන්න
+  // Check login status on mount
   useEffect(() => {
     const userEmail = localStorage.getItem("userEmail");
     if (userEmail) {
@@ -17,17 +29,21 @@ export default function Navbar() {
     }
   }, []);
 
-  // 2. Logout බොත්තම ක්‍රියාත්මක වූ විට දත්ත මකා දමා Signin වෙත යවන්න
+  /** Clear stored auth data and redirect to sign-in */
   const handleLogout = () => {
     localStorage.removeItem("userEmail");
     localStorage.removeItem("userRole");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userId");
     setIsLoggedIn(false);
     navigate("/signin");
   };
 
+  // Active link gets yellow highlight, inactive links are gray
   const linkCls = ({ isActive }) =>
     "px-3 py-2 rounded-md text-sm font-medium transition " +
-    (isActive ? "text-black bg-[#e2e600]" : "text-gray-300 hover:text-white hover:bg-[#1b1b1b]");
+    (isActive ? "text-black bg-sentraYellow" : "text-gray-300 hover:text-white hover:bg-[#1b1b1b]");
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#232323] bg-[#121212]/90 backdrop-blur">
@@ -41,7 +57,7 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center gap-1">
             <NavLink to="/admin" className={linkCls}>Facilities</NavLink>
             
-            {/* 3. ලොග් වී ඇත්නම් Logout පෙන්වන්න, නැත්නම් Sign In පෙන්වන්න */}
+            {/* Show Logout if authenticated, otherwise show Sign In / Sign Up */}
             {!isLoggedIn ? (
               <>
                 <NavLink to="/signin" className={linkCls}>Sign in</NavLink>
@@ -71,12 +87,12 @@ export default function Navbar() {
       {open && (
         <div className="md:hidden border-t border-[#232323] bg-[#121212]">
           <div className="px-4 py-3 flex flex-col space-y-2">
-            <NavLink to="/admin" className="text-gray-300 hover:text-[#e2e600]" onClick={() => setOpen(false)}>Facilities</NavLink>
+            <NavLink to="/admin" className="text-gray-300 hover:text-sentraYellow" onClick={() => setOpen(false)}>Facilities</NavLink>
             
             {!isLoggedIn ? (
               <>
-                <NavLink to="/signin" className="text-gray-300 hover:text-[#e2e600]" onClick={() => setOpen(false)}>Sign in</NavLink>
-                <NavLink to="/signup" className="text-gray-300 hover:text-[#e2e600]" onClick={() => setOpen(false)}>Sign up</NavLink>
+                <NavLink to="/signin" className="text-gray-300 hover:text-sentraYellow" onClick={() => setOpen(false)}>Sign in</NavLink>
+                <NavLink to="/signup" className="text-gray-300 hover:text-sentraYellow" onClick={() => setOpen(false)}>Sign up</NavLink>
               </>
             ) : (
               <button 
