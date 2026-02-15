@@ -330,6 +330,12 @@ Update facility details.
 
 ---
 
+### DELETE `/api/facilities/:id` (admin only)
+
+Permanently delete a facility and its related records.
+
+---
+
 ## 5. Parking Spots
 
 ### GET `/api/facilities/:id/spots` (public)

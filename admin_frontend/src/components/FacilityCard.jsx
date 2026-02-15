@@ -23,7 +23,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import ProgressBar from "./ProgressBar";
 
-export default function FacilityCard({ facility }) {
+export default function FacilityCard({ facility, onEdit, onDelete }) {
   const {
     id,
     name,
@@ -38,6 +38,13 @@ export default function FacilityCard({ facility }) {
 
   const capacityPct = total_spots > 0 ? Math.round((occupied_spots / total_spots) * 100) : 0;
   const status = is_active ? "Active" : "Inactive";
+  const showActions = onEdit || onDelete;
+
+  const handleAction = (event, action) => {
+    event.preventDefault();
+    event.stopPropagation();
+    action?.(facility);
+  };
 
   return (
     <Link
@@ -51,9 +58,33 @@ export default function FacilityCard({ facility }) {
             {city || `ID #${String(id).padStart(3, "0")}`}
           </p>
         </div>
-        <span className={`px-2 py-1 rounded text-xs ${status==='Active' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
-          {status}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={`px-2 py-1 rounded text-xs ${status==='Active' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
+            {status}
+          </span>
+          {showActions && (
+            <div className="flex gap-2">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={(event) => handleAction(event, onEdit)}
+                  className="text-xs text-gray-300 hover:text-white hover:bg-white/10 px-2 py-1 rounded"
+                >
+                  Edit
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={(event) => handleAction(event, onDelete)}
+                  className="text-xs text-red-400 hover:bg-red-500/10 px-2 py-1 rounded"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-6">

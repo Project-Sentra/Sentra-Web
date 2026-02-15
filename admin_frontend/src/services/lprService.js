@@ -154,6 +154,12 @@ const lprService = {
     return r.data;
   },
 
+  /** Delete a facility. */
+  async deleteFacility(facilityId) {
+    const r = await api.delete(`/facilities/${facilityId}`);
+    return r.data;
+  },
+
   // ==========================================
   // Parking Spots
   // ==========================================
