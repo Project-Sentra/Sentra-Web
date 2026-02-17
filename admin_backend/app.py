@@ -89,7 +89,9 @@ if __name__ == "__main__":
     import os
 
     print(f"Connected to Supabase: {SUPABASE_URL}")
-    is_production = os.getenv("ENVIRONMENT", "dev") in ("free", "prod", "staging")
+    env = os.getenv("ENVIRONMENT", "dev")
+    is_docker = os.path.exists("/.dockerenv")
+    is_production = env in ("free", "prod", "staging", "production") or is_docker
     host = "0.0.0.0" if is_production else "127.0.0.1"
     debug = not is_production
     print(f"Server starting on http://{host}:5000 ...")
