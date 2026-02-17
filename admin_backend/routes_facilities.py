@@ -9,7 +9,6 @@ from flask import request, jsonify
 from app import app, supabase
 from routes_common import require_admin, DEFAULT_HOURLY_RATE
 
-
 # ==========================================================================
 # 4. FACILITY MANAGEMENT
 # ==========================================================================

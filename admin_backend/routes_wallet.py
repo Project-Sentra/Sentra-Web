@@ -9,7 +9,6 @@ from flask import request, jsonify
 from app import app, supabase
 from routes_common import require_auth, DEFAULT_CURRENCY, _create_notification
 
-
 # ==========================================================================
 # 8. PAYMENTS & WALLET
 # ==========================================================================

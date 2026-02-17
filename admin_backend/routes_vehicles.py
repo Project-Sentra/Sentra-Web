@@ -8,7 +8,6 @@ from flask import request, jsonify
 from app import app, supabase
 from routes_common import require_auth
 
-
 # ==========================================================================
 # 3. VEHICLE MANAGEMENT
 # ==========================================================================

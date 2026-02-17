@@ -10,7 +10,6 @@ from flask import request, jsonify
 from app import app, supabase
 from routes_common import require_auth, DEFAULT_HOURLY_RATE, _create_notification
 
-
 # ==========================================================================
 # 7. PARKING SESSIONS (Entry / Exit)
 # ==========================================================================

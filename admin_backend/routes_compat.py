@@ -11,7 +11,6 @@ from routes_auth import signup, login
 from routes_sessions import vehicle_entry, vehicle_exit
 from routes_detections import add_detection, update_detection_action
 
-
 # ==========================================================================
 # BACKWARD COMPATIBILITY – Old endpoint aliases
 # ==========================================================================
