@@ -13,6 +13,7 @@ from routes_common import require_auth
 # 13. NOTIFICATIONS
 # ==========================================================================
 
+
 @app.route("/api/notifications", methods=["GET"])
 @require_auth
 def get_notifications():
@@ -33,7 +34,9 @@ def get_notifications():
 @require_auth
 def mark_notification_read(notif_id):
     """PUT /api/notifications/:id/read – Mark one notification as read."""
-    supabase.table("notifications").update({"is_read": True}).eq("id", notif_id).execute()
+    supabase.table("notifications").update({"is_read": True}).eq(
+        "id", notif_id
+    ).execute()
     return jsonify({"message": "Marked as read"}), 200
 
 

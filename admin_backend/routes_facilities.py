@@ -14,6 +14,7 @@ from routes_common import require_admin, DEFAULT_HOURLY_RATE
 # 4. FACILITY MANAGEMENT
 # ==========================================================================
 
+
 @app.route("/api/facilities", methods=["GET"])
 def get_facilities():
     """GET /api/facilities – List all active facilities (public for mobile app)."""
@@ -37,7 +38,9 @@ def get_facilities():
         )
         total = len(spots.data)
         occupied = sum(1 for s in spots.data if s["is_occupied"])
-        reserved = sum(1 for s in spots.data if s["is_reserved"] and not s["is_occupied"])
+        reserved = sum(
+            1 for s in spots.data if s["is_reserved"] and not s["is_occupied"]
+        )
 
         f["total_spots"] = total
         f["occupied_spots"] = occupied
@@ -75,7 +78,13 @@ def create_facility():
 @app.route("/api/facilities/<int:facility_id>", methods=["GET"])
 def get_facility(facility_id):
     """GET /api/facilities/:id – Get facility details with floors and spot summary."""
-    facility = supabase.table("facilities").select("*").eq("id", facility_id).limit(1).execute()
+    facility = (
+        supabase.table("facilities")
+        .select("*")
+        .eq("id", facility_id)
+        .limit(1)
+        .execute()
+    )
     if not facility.data:
         return jsonify({"message": "Facility not found"}), 404
 
@@ -98,16 +107,21 @@ def get_facility(facility_id):
     occupied = sum(1 for s in spots.data if s["is_occupied"])
     reserved = sum(1 for s in spots.data if s["is_reserved"] and not s["is_occupied"])
 
-    return jsonify({
-        "facility": facility.data[0],
-        "floors": floors.data,
-        "summary": {
-            "total": total,
-            "occupied": occupied,
-            "reserved": reserved,
-            "available": total - occupied - reserved,
-        },
-    }), 200
+    return (
+        jsonify(
+            {
+                "facility": facility.data[0],
+                "floors": floors.data,
+                "summary": {
+                    "total": total,
+                    "occupied": occupied,
+                    "reserved": reserved,
+                    "available": total - occupied - reserved,
+                },
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/api/facilities/<int:facility_id>", methods=["PUT"])
@@ -116,8 +130,18 @@ def update_facility(facility_id):
     """PUT /api/facilities/:id – Update facility details."""
     data = request.get_json()
     updates = {}
-    for field in ["name", "address", "city", "latitude", "longitude", "hourly_rate",
-                  "operating_hours_start", "operating_hours_end", "is_active", "image_url"]:
+    for field in [
+        "name",
+        "address",
+        "city",
+        "latitude",
+        "longitude",
+        "hourly_rate",
+        "operating_hours_start",
+        "operating_hours_end",
+        "is_active",
+        "image_url",
+    ]:
         if field in data:
             updates[field] = data[field]
     if not updates:

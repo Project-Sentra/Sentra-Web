@@ -14,6 +14,7 @@ from routes_common import require_admin, LPR_SERVICE_URL
 # 15. SYSTEM
 # ==========================================================================
 
+
 @app.route("/api/system/reset", methods=["POST"])
 @require_admin
 def reset_system():
@@ -22,19 +23,27 @@ def reset_system():
 
     try:
         if facility_id:
-            supabase.table("parking_sessions").delete().eq("facility_id", facility_id).neq("id", 0).execute()
-            supabase.table("reservations").delete().eq("facility_id", facility_id).neq("id", 0).execute()
-            supabase.table("parking_spots").update({
-                "is_occupied": False,
-                "is_reserved": False,
-            }).eq("facility_id", facility_id).neq("id", 0).execute()
+            supabase.table("parking_sessions").delete().eq(
+                "facility_id", facility_id
+            ).neq("id", 0).execute()
+            supabase.table("reservations").delete().eq("facility_id", facility_id).neq(
+                "id", 0
+            ).execute()
+            supabase.table("parking_spots").update(
+                {
+                    "is_occupied": False,
+                    "is_reserved": False,
+                }
+            ).eq("facility_id", facility_id).neq("id", 0).execute()
         else:
             supabase.table("parking_sessions").delete().neq("id", 0).execute()
             supabase.table("reservations").delete().neq("id", 0).execute()
-            supabase.table("parking_spots").update({
-                "is_occupied": False,
-                "is_reserved": False,
-            }).neq("id", 0).execute()
+            supabase.table("parking_spots").update(
+                {
+                    "is_occupied": False,
+                    "is_reserved": False,
+                }
+            ).neq("id", 0).execute()
 
         return jsonify({"message": "System reset! All spots are now free."}), 200
     except Exception as e:

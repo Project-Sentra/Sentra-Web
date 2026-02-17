@@ -14,6 +14,7 @@ from routes_common import require_admin
 # 14. DASHBOARD / ANALYTICS (Admin)
 # ==========================================================================
 
+
 @app.route("/api/dashboard/stats", methods=["GET"])
 @require_admin
 def dashboard_stats():
@@ -39,7 +40,9 @@ def dashboard_stats():
     available = total_spots - occupied - reserved
 
     # Today's sessions and revenue
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+    today_start = (
+        datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+    )
     today_sessions = (
         supabase.table("parking_sessions")
         .select("amount, payment_status")
@@ -48,7 +51,11 @@ def dashboard_stats():
         .execute()
     )
     today_entries = len(today_sessions.data)
-    today_revenue = sum(s.get("amount", 0) or 0 for s in today_sessions.data if s.get("payment_status") == "paid")
+    today_revenue = sum(
+        s.get("amount", 0) or 0
+        for s in today_sessions.data
+        if s.get("payment_status") == "paid"
+    )
 
     # Active sessions
     active_sessions = (
@@ -70,26 +77,33 @@ def dashboard_stats():
 
     # Registered users count
     total_users = supabase.table("users").select("id").eq("role", "user").execute()
-    total_vehicles = supabase.table("vehicles").select("id").eq("is_active", True).execute()
+    total_vehicles = (
+        supabase.table("vehicles").select("id").eq("is_active", True).execute()
+    )
 
-    return jsonify({
-        "spots": {
-            "total": total_spots,
-            "occupied": occupied,
-            "reserved": reserved,
-            "available": available,
-        },
-        "today": {
-            "entries": today_entries,
-            "revenue": today_revenue,
-            "active_sessions": len(active_sessions.data),
-            "reservations": len(today_reservations.data),
-        },
-        "system": {
-            "total_users": len(total_users.data),
-            "total_vehicles": len(total_vehicles.data),
-        },
-    }), 200
+    return (
+        jsonify(
+            {
+                "spots": {
+                    "total": total_spots,
+                    "occupied": occupied,
+                    "reserved": reserved,
+                    "available": available,
+                },
+                "today": {
+                    "entries": today_entries,
+                    "revenue": today_revenue,
+                    "active_sessions": len(active_sessions.data),
+                    "reservations": len(today_reservations.data),
+                },
+                "system": {
+                    "total_users": len(total_users.data),
+                    "total_vehicles": len(total_vehicles.data),
+                },
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/api/dashboard/recent-activity", methods=["GET"])
@@ -119,7 +133,12 @@ def recent_activity():
         detections = detections.eq("facility_id", facility_id)
     detections = detections.execute()
 
-    return jsonify({
-        "recent_sessions": sessions.data,
-        "recent_detections": detections.data,
-    }), 200
+    return (
+        jsonify(
+            {
+                "recent_sessions": sessions.data,
+                "recent_detections": detections.data,
+            }
+        ),
+        200,
+    )

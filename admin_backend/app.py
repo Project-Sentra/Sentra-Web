@@ -56,6 +56,7 @@ def handle_preflight():
     if request.method == "OPTIONS":
         return make_response(), 200
 
+
 # ==========================================
 # Supabase Database Configuration
 # ==========================================
@@ -85,8 +86,11 @@ import routes  # noqa: E402, F401
 # ==========================================
 
 if __name__ == "__main__":
+    import os
+
     print(f"Connected to Supabase: {SUPABASE_URL}")
-    print("Server starting on http://127.0.0.1:5000 ...")
-    # debug=True enables auto-reload on code changes and detailed error pages.
-    # Do NOT use debug=True in production.
-    app.run(debug=True, port=5000)
+    is_production = os.getenv("ENVIRONMENT", "dev") in ("free", "prod", "staging")
+    host = "0.0.0.0" if is_production else "127.0.0.1"
+    debug = not is_production
+    print(f"Server starting on http://{host}:5000 ...")
+    app.run(host=host, debug=debug, port=5000)

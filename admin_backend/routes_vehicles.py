@@ -13,6 +13,7 @@ from routes_common import require_auth
 # 3. VEHICLE MANAGEMENT
 # ==========================================================================
 
+
 @app.route("/api/vehicles", methods=["POST"])
 @require_auth
 def register_vehicle():
@@ -59,8 +60,16 @@ def get_vehicles():
     - Regular users: returns only their vehicles
     - Admin: returns all vehicles (with ?all=true) or their own
     """
-    if request.args.get("all") == "true" and request.db_user["role"] in ("admin", "operator"):
-        result = supabase.table("vehicles").select("*, users(email, full_name)").order("created_at", desc=True).execute()
+    if request.args.get("all") == "true" and request.db_user["role"] in (
+        "admin",
+        "operator",
+    ):
+        result = (
+            supabase.table("vehicles")
+            .select("*, users(email, full_name)")
+            .order("created_at", desc=True)
+            .execute()
+        )
     else:
         result = (
             supabase.table("vehicles")
@@ -93,7 +102,9 @@ def update_vehicle(vehicle_id):
 @require_auth
 def deactivate_vehicle(vehicle_id):
     """DELETE /api/vehicles/:id – Deactivate (soft-delete) a vehicle."""
-    supabase.table("vehicles").update({"is_active": False}).eq("id", vehicle_id).execute()
+    supabase.table("vehicles").update({"is_active": False}).eq(
+        "id", vehicle_id
+    ).execute()
     return jsonify({"message": "Vehicle deactivated"}), 200
 
 
@@ -129,9 +140,14 @@ def lookup_vehicle(plate_number):
         .execute()
     )
 
-    return jsonify({
-        "registered": True,
-        "vehicle": vehicle,
-        "has_subscription": len(sub.data) > 0,
-        "subscription": sub.data[0] if sub.data else None,
-    }), 200
+    return (
+        jsonify(
+            {
+                "registered": True,
+                "vehicle": vehicle,
+                "has_subscription": len(sub.data) > 0,
+                "subscription": sub.data[0] if sub.data else None,
+            }
+        ),
+        200,
+    )

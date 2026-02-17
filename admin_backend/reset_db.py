@@ -53,10 +53,12 @@ def clear_data():
 
     # Reset all spots to unoccupied
     try:
-        supabase.table("parking_spots").update({
-            "is_occupied": False,
-            "is_reserved": False,
-        }).neq("id", 0).execute()
+        supabase.table("parking_spots").update(
+            {
+                "is_occupied": False,
+                "is_reserved": False,
+            }
+        ).neq("id", 0).execute()
         print("  All parking spots reset to free.")
     except Exception:
         pass
@@ -70,13 +72,19 @@ def seed_facility():
         facility_id = existing.data[0]["id"]
         print(f"\n  Facility already exists (id={facility_id}), skipping creation.")
     else:
-        result = supabase.table("facilities").insert({
-            "name": "Sentra Main Parking",
-            "address": "123 Colombo Road",
-            "city": "Colombo",
-            "total_spots": 32,
-            "hourly_rate": 150,
-        }).execute()
+        result = (
+            supabase.table("facilities")
+            .insert(
+                {
+                    "name": "Sentra Main Parking",
+                    "address": "123 Colombo Road",
+                    "city": "Colombo",
+                    "total_spots": 32,
+                    "hourly_rate": 150,
+                }
+            )
+            .execute()
+        )
         facility_id = result.data[0]["id"]
         print(f"\n  Created facility: Sentra Main Parking (id={facility_id})")
 
@@ -90,12 +98,18 @@ def seed_facility():
     )
     floor_id = None
     if not floor_exists.data:
-        floor_result = supabase.table("floors").insert({
-            "facility_id": facility_id,
-            "floor_number": 0,
-            "name": "Ground Floor",
-            "total_spots": 32,
-        }).execute()
+        floor_result = (
+            supabase.table("floors")
+            .insert(
+                {
+                    "facility_id": facility_id,
+                    "floor_number": 0,
+                    "name": "Ground Floor",
+                    "total_spots": 32,
+                }
+            )
+            .execute()
+        )
         floor_id = floor_result.data[0]["id"]
         print(f"  Created floor: Ground Floor (id={floor_id})")
     else:
@@ -113,14 +127,16 @@ def seed_facility():
     if not spots_exist.data:
         spots = []
         for i in range(1, 33):
-            spots.append({
-                "facility_id": facility_id,
-                "floor_id": floor_id,
-                "spot_name": f"A-{str(i).zfill(2)}",
-                "spot_type": "regular",
-                "is_occupied": False,
-                "is_reserved": False,
-            })
+            spots.append(
+                {
+                    "facility_id": facility_id,
+                    "floor_id": floor_id,
+                    "spot_name": f"A-{str(i).zfill(2)}",
+                    "spot_type": "regular",
+                    "is_occupied": False,
+                    "is_reserved": False,
+                }
+            )
         supabase.table("parking_spots").insert(spots).execute()
         print(f"  Created 32 parking spots (A-01 to A-32)")
     else:
@@ -136,10 +152,34 @@ def seed_facility():
     )
     if not plans_exist.data:
         plans = [
-            {"facility_id": facility_id, "name": "Hourly Standard",  "plan_type": "hourly",      "rate": 150,    "description": "LKR 150 per hour, billed per started hour"},
-            {"facility_id": facility_id, "name": "Daily Rate",       "plan_type": "daily",        "rate": 1000,   "description": "LKR 1,000 flat rate for up to 24 hours"},
-            {"facility_id": facility_id, "name": "Monthly Pass",     "plan_type": "monthly",      "rate": 15000,  "description": "LKR 15,000 per month, unlimited parking"},
-            {"facility_id": facility_id, "name": "Reservation Fee",  "plan_type": "reservation",  "rate": 200,    "description": "LKR 200 advance booking fee"},
+            {
+                "facility_id": facility_id,
+                "name": "Hourly Standard",
+                "plan_type": "hourly",
+                "rate": 150,
+                "description": "LKR 150 per hour, billed per started hour",
+            },
+            {
+                "facility_id": facility_id,
+                "name": "Daily Rate",
+                "plan_type": "daily",
+                "rate": 1000,
+                "description": "LKR 1,000 flat rate for up to 24 hours",
+            },
+            {
+                "facility_id": facility_id,
+                "name": "Monthly Pass",
+                "plan_type": "monthly",
+                "rate": 15000,
+                "description": "LKR 15,000 per month, unlimited parking",
+            },
+            {
+                "facility_id": facility_id,
+                "name": "Reservation Fee",
+                "plan_type": "reservation",
+                "rate": 200,
+                "description": "LKR 200 advance booking fee",
+            },
         ]
         supabase.table("pricing_plans").insert(plans).execute()
         print("  Created 4 pricing plans (hourly, daily, monthly, reservation)")

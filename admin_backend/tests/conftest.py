@@ -48,11 +48,22 @@ with patch("supabase.create_client", return_value=_mock_supabase_client):
 
 # Also patch the references in all route modules
 _route_modules = [
-    "routes_common", "routes_auth", "routes_users", "routes_vehicles",
-    "routes_facilities", "routes_spots", "routes_reservations",
-    "routes_sessions", "routes_wallet", "routes_subscriptions",
-    "routes_cameras", "routes_gates", "routes_detections",
-    "routes_notifications", "routes_dashboard", "routes_system",
+    "routes_common",
+    "routes_auth",
+    "routes_users",
+    "routes_vehicles",
+    "routes_facilities",
+    "routes_spots",
+    "routes_reservations",
+    "routes_sessions",
+    "routes_wallet",
+    "routes_subscriptions",
+    "routes_cameras",
+    "routes_gates",
+    "routes_detections",
+    "routes_notifications",
+    "routes_dashboard",
+    "routes_system",
     "routes_compat",
 ]
 

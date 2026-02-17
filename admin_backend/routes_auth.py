@@ -16,6 +16,7 @@ from routes_common import require_auth
 # 1. AUTH ENDPOINTS
 # ==========================================================================
 
+
 @app.route("/api/auth/signup", methods=["POST"])
 def signup():
     """
@@ -39,11 +40,13 @@ def signup():
         return jsonify({"message": "role must be admin, user, or operator"}), 400
 
     try:
-        response = supabase.auth.sign_up({
-            "email": email,
-            "password": password,
-            "options": {"data": {"role": role, "full_name": full_name}},
-        })
+        response = supabase.auth.sign_up(
+            {
+                "email": email,
+                "password": password,
+                "options": {"data": {"role": role, "full_name": full_name}},
+            }
+        )
 
         if response.user:
             # Create local user record
@@ -58,22 +61,32 @@ def signup():
 
             # Create wallet for the user
             if result.data:
-                supabase.table("user_wallets").insert({
-                    "user_id": result.data[0]["id"],
-                    "balance": 0,
-                }).execute()
+                supabase.table("user_wallets").insert(
+                    {
+                        "user_id": result.data[0]["id"],
+                        "balance": 0,
+                    }
+                ).execute()
 
-            return jsonify({
-                "message": "Account created! Please check your email to verify.",
-                "user_id": response.user.id,
-            }), 201
+            return (
+                jsonify(
+                    {
+                        "message": "Account created! Please check your email to verify.",
+                        "user_id": response.user.id,
+                    }
+                ),
+                201,
+            )
         else:
             return jsonify({"message": "Failed to create account"}), 400
 
     except Exception as e:
         error_msg = str(e)
         if "already registered" in error_msg.lower():
-            return jsonify({"message": "An account with this email already exists"}), 400
+            return (
+                jsonify({"message": "An account with this email already exists"}),
+                400,
+            )
         return jsonify({"message": f"Error: {error_msg}"}), 500
 
 
@@ -93,10 +106,12 @@ def login():
         return jsonify({"message": "Email and password are required"}), 400
 
     try:
-        response = supabase.auth.sign_in_with_password({
-            "email": email,
-            "password": password,
-        })
+        response = supabase.auth.sign_in_with_password(
+            {
+                "email": email,
+                "password": password,
+            }
+        )
 
         if response.user and response.session:
             user_data = (
@@ -108,19 +123,24 @@ def login():
             )
             user_record = user_data.data[0] if user_data.data else {}
 
-            return jsonify({
-                "message": "Login successful!",
-                "access_token": response.session.access_token,
-                "refresh_token": response.session.refresh_token,
-                "user": {
-                    "id": response.user.id,
-                    "db_id": user_record.get("id"),
-                    "email": response.user.email,
-                    "full_name": user_record.get("full_name", ""),
-                    "phone": user_record.get("phone", ""),
-                    "role": user_record.get("role", "user"),
-                },
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": "Login successful!",
+                        "access_token": response.session.access_token,
+                        "refresh_token": response.session.refresh_token,
+                        "user": {
+                            "id": response.user.id,
+                            "db_id": user_record.get("id"),
+                            "email": response.user.email,
+                            "full_name": user_record.get("full_name", ""),
+                            "phone": user_record.get("phone", ""),
+                            "role": user_record.get("role", "user"),
+                        },
+                    }
+                ),
+                200,
+            )
         else:
             return jsonify({"message": "Invalid email or password"}), 401
 
@@ -145,18 +165,23 @@ def get_profile():
         .execute()
     )
 
-    return jsonify({
-        "user": {
-            "id": user["id"],
-            "email": user["email"],
-            "full_name": user.get("full_name"),
-            "phone": user.get("phone"),
-            "role": user["role"],
-            "is_active": user["is_active"],
-            "wallet_balance": wallet.data[0]["balance"] if wallet.data else 0,
-            "created_at": user["created_at"],
-        }
-    }), 200
+    return (
+        jsonify(
+            {
+                "user": {
+                    "id": user["id"],
+                    "email": user["email"],
+                    "full_name": user.get("full_name"),
+                    "phone": user.get("phone"),
+                    "role": user["role"],
+                    "is_active": user["is_active"],
+                    "wallet_balance": wallet.data[0]["balance"] if wallet.data else 0,
+                    "created_at": user["created_at"],
+                }
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/api/auth/me", methods=["PUT"])
@@ -174,8 +199,6 @@ def update_profile():
 
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-    supabase.table("users").update(updates).eq(
-        "id", request.db_user["id"]
-    ).execute()
+    supabase.table("users").update(updates).eq("id", request.db_user["id"]).execute()
 
     return jsonify({"message": "Profile updated"}), 200

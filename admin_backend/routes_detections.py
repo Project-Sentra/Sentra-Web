@@ -14,6 +14,7 @@ from routes_common import require_admin
 # 12. DETECTION LOGS
 # ==========================================================================
 
+
 @app.route("/api/detections", methods=["GET"])
 @require_admin
 def get_detections():
@@ -21,7 +22,12 @@ def get_detections():
     limit = request.args.get("limit", 50, type=int)
     facility_id = request.args.get("facility_id", type=int)
 
-    query = supabase.table("detection_logs").select("*").order("detected_at", desc=True).limit(limit)
+    query = (
+        supabase.table("detection_logs")
+        .select("*")
+        .order("detected_at", desc=True)
+        .limit(limit)
+    )
     if facility_id:
         query = query.eq("facility_id", facility_id)
     result = query.execute()
@@ -73,11 +79,16 @@ def add_detection():
     }
     result = supabase.table("detection_logs").insert(log).execute()
 
-    return jsonify({
-        "message": "Detection logged",
-        "id": result.data[0]["id"],
-        "is_registered": is_registered,
-    }), 201
+    return (
+        jsonify(
+            {
+                "message": "Detection logged",
+                "id": result.data[0]["id"],
+                "is_registered": is_registered,
+            }
+        ),
+        201,
+    )
 
 
 @app.route("/api/detections/<int:log_id>/action", methods=["PATCH"])
@@ -89,5 +100,7 @@ def update_detection_action(log_id):
     if action not in ("entry", "exit", "ignored", "gate_opened"):
         return jsonify({"message": "Invalid action"}), 400
 
-    supabase.table("detection_logs").update({"action_taken": action}).eq("id", log_id).execute()
+    supabase.table("detection_logs").update({"action_taken": action}).eq(
+        "id", log_id
+    ).execute()
     return jsonify({"message": f"Action updated to {action}"}), 200

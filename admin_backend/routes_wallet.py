@@ -14,6 +14,7 @@ from routes_common import require_auth, DEFAULT_CURRENCY, _create_notification
 # 8. PAYMENTS & WALLET
 # ==========================================================================
 
+
 @app.route("/api/wallet", methods=["GET"])
 @require_auth
 def get_wallet():
@@ -55,19 +56,23 @@ def topup_wallet():
         return jsonify({"message": "Wallet not found"}), 404
 
     new_balance = wallet.data[0]["balance"] + amount
-    supabase.table("user_wallets").update({
-        "balance": new_balance,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("id", wallet.data[0]["id"]).execute()
+    supabase.table("user_wallets").update(
+        {
+            "balance": new_balance,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).eq("id", wallet.data[0]["id"]).execute()
 
     # Record payment
-    supabase.table("payments").insert({
-        "user_id": request.db_user["id"],
-        "amount": amount,
-        "payment_method": data.get("payment_method", "card"),
-        "payment_status": "completed",
-        "description": "Wallet top-up",
-    }).execute()
+    supabase.table("payments").insert(
+        {
+            "user_id": request.db_user["id"],
+            "amount": amount,
+            "payment_method": data.get("payment_method", "card"),
+            "payment_status": "completed",
+            "description": "Wallet top-up",
+        }
+    ).execute()
 
     _create_notification(
         request.db_user["id"],
@@ -84,10 +89,15 @@ def topup_wallet():
 @require_auth
 def get_payments():
     """GET /api/payments – Payment history for the current user (or all for admin)."""
-    if request.args.get("all") == "true" and request.db_user["role"] in ("admin", "operator"):
+    if request.args.get("all") == "true" and request.db_user["role"] in (
+        "admin",
+        "operator",
+    ):
         query = supabase.table("payments").select("*, users(email, full_name)")
     else:
-        query = supabase.table("payments").select("*").eq("user_id", request.db_user["id"])
+        query = (
+            supabase.table("payments").select("*").eq("user_id", request.db_user["id"])
+        )
 
     result = query.order("created_at", desc=True).limit(100).execute()
     return jsonify({"payments": result.data}), 200

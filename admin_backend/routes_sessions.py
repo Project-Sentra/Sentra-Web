@@ -15,6 +15,7 @@ from routes_common import require_auth, DEFAULT_HOURLY_RATE, _create_notificatio
 # 7. PARKING SESSIONS (Entry / Exit)
 # ==========================================================================
 
+
 @app.route("/api/sessions/entry", methods=["POST"])
 def vehicle_entry():
     """
@@ -53,10 +54,15 @@ def vehicle_entry():
         .execute()
     )
     if active.data:
-        return jsonify({
-            "message": f"Vehicle {plate} is already parked at {active.data[0]['spot_name']}",
-            "gate_action": "deny",
-        }), 409
+        return (
+            jsonify(
+                {
+                    "message": f"Vehicle {plate} is already parked at {active.data[0]['spot_name']}",
+                    "gate_action": "deny",
+                }
+            ),
+            409,
+        )
 
     # Look up vehicle registration
     vehicle = (
@@ -103,10 +109,12 @@ def vehicle_entry():
                 spot = spot_result.data[0] if spot_result.data else None
 
             # Update reservation status
-            supabase.table("reservations").update({
-                "status": "checked_in",
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }).eq("id", reservation_id).execute()
+            supabase.table("reservations").update(
+                {
+                    "status": "checked_in",
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            ).eq("id", reservation_id).execute()
 
     # Check for active subscription
     if vehicle_id and session_type == "walk_in":
@@ -140,10 +148,12 @@ def vehicle_entry():
         spot = spot_result.data[0]
 
     # Mark spot as occupied, clear reserved flag
-    supabase.table("parking_spots").update({
-        "is_occupied": True,
-        "is_reserved": False,
-    }).eq("id", spot["id"]).execute()
+    supabase.table("parking_spots").update(
+        {
+            "is_occupied": True,
+            "is_reserved": False,
+        }
+    ).eq("id", spot["id"]).execute()
 
     # Create parking session
     session = {
@@ -166,20 +176,28 @@ def vehicle_entry():
             "Vehicle Entered",
             f"Your vehicle {plate} has been parked at {spot['spot_name']}.",
             "entry",
-            {"session_id": session_result.data[0]["id"], "spot_name": spot["spot_name"]},
+            {
+                "session_id": session_result.data[0]["id"],
+                "spot_name": spot["spot_name"],
+            },
         )
 
     # Determine gate action
     gate_action = "open" if is_registered else "pending"
 
-    return jsonify({
-        "message": f"Vehicle {plate} parked at {spot['spot_name']}",
-        "spot": spot["spot_name"],
-        "session_type": session_type,
-        "is_registered": is_registered,
-        "gate_action": gate_action,
-        "session_id": session_result.data[0]["id"],
-    }), 200
+    return (
+        jsonify(
+            {
+                "message": f"Vehicle {plate} parked at {spot['spot_name']}",
+                "spot": spot["spot_name"],
+                "session_type": session_type,
+                "is_registered": is_registered,
+                "gate_action": gate_action,
+                "session_id": session_result.data[0]["id"],
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/api/sessions/exit", methods=["POST"])
@@ -221,10 +239,12 @@ def vehicle_exit():
 
     # Free the spot
     if session.get("spot_id"):
-        supabase.table("parking_spots").update({
-            "is_occupied": False,
-            "is_reserved": False,
-        }).eq("id", session["spot_id"]).execute()
+        supabase.table("parking_spots").update(
+            {
+                "is_occupied": False,
+                "is_reserved": False,
+            }
+        ).eq("id", session["spot_id"]).execute()
 
     # Calculate duration and fee
     entry_time = datetime.fromisoformat(session["entry_time"].replace("Z", "+00:00"))
@@ -251,19 +271,23 @@ def vehicle_exit():
         payment_status = "pending"
 
     # Update session
-    supabase.table("parking_sessions").update({
-        "exit_time": exit_time.isoformat(),
-        "duration_minutes": duration_minutes,
-        "amount": amount,
-        "payment_status": payment_status if amount == 0 else "pending",
-    }).eq("id", session["id"]).execute()
+    supabase.table("parking_sessions").update(
+        {
+            "exit_time": exit_time.isoformat(),
+            "duration_minutes": duration_minutes,
+            "amount": amount,
+            "payment_status": payment_status if amount == 0 else "pending",
+        }
+    ).eq("id", session["id"]).execute()
 
     # Complete reservation if applicable
     if session.get("reservation_id"):
-        supabase.table("reservations").update({
-            "status": "completed",
-            "updated_at": exit_time.isoformat(),
-        }).eq("id", session["reservation_id"]).execute()
+        supabase.table("reservations").update(
+            {
+                "status": "completed",
+                "updated_at": exit_time.isoformat(),
+            }
+        ).eq("id", session["reservation_id"]).execute()
 
     # Auto-pay from wallet if registered user
     if amount > 0 and session.get("vehicle_id"):
@@ -283,25 +307,35 @@ def vehicle_exit():
                 .limit(1)
                 .execute()
             )
-            if wallet.data and wallet.data[0]["balance"] >= amount and payment_method == "wallet":
+            if (
+                wallet.data
+                and wallet.data[0]["balance"] >= amount
+                and payment_method == "wallet"
+            ):
                 new_balance = wallet.data[0]["balance"] - amount
-                supabase.table("user_wallets").update({
-                    "balance": new_balance,
-                    "updated_at": exit_time.isoformat(),
-                }).eq("id", wallet.data[0]["id"]).execute()
+                supabase.table("user_wallets").update(
+                    {
+                        "balance": new_balance,
+                        "updated_at": exit_time.isoformat(),
+                    }
+                ).eq("id", wallet.data[0]["id"]).execute()
 
-                supabase.table("payments").insert({
-                    "user_id": user_id,
-                    "session_id": session["id"],
-                    "amount": amount,
-                    "payment_method": "wallet",
-                    "payment_status": "completed",
-                    "description": f"Parking fee for {plate} at {session['spot_name']}",
-                }).execute()
+                supabase.table("payments").insert(
+                    {
+                        "user_id": user_id,
+                        "session_id": session["id"],
+                        "amount": amount,
+                        "payment_method": "wallet",
+                        "payment_status": "completed",
+                        "description": f"Parking fee for {plate} at {session['spot_name']}",
+                    }
+                ).execute()
 
-                supabase.table("parking_sessions").update({
-                    "payment_status": "paid",
-                }).eq("id", session["id"]).execute()
+                supabase.table("parking_sessions").update(
+                    {
+                        "payment_status": "paid",
+                    }
+                ).eq("id", session["id"]).execute()
 
                 payment_status = "paid"
 
@@ -311,16 +345,25 @@ def vehicle_exit():
                 "Vehicle Exited",
                 f"Your vehicle {plate} has left. Duration: {duration_minutes} min. Fee: LKR {amount}.",
                 "exit",
-                {"session_id": session["id"], "amount": amount, "duration_minutes": duration_minutes},
+                {
+                    "session_id": session["id"],
+                    "amount": amount,
+                    "duration_minutes": duration_minutes,
+                },
             )
 
-    return jsonify({
-        "message": f"Spot {session['spot_name']} is now free!",
-        "duration_minutes": duration_minutes,
-        "amount": amount,
-        "payment_status": payment_status,
-        "gate_action": "open",
-    }), 200
+    return (
+        jsonify(
+            {
+                "message": f"Spot {session['spot_name']} is now free!",
+                "duration_minutes": duration_minutes,
+                "amount": amount,
+                "payment_status": payment_status,
+                "gate_action": "open",
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/api/sessions", methods=["GET"])
@@ -338,7 +381,10 @@ def get_sessions():
     facility_id = request.args.get("facility_id", type=int)
     active_only = request.args.get("active") == "true"
 
-    if request.args.get("all") == "true" and request.db_user["role"] in ("admin", "operator"):
+    if request.args.get("all") == "true" and request.db_user["role"] in (
+        "admin",
+        "operator",
+    ):
         query = supabase.table("parking_sessions").select("*")
     elif request.db_user.get("id"):
         # Get user's vehicle IDs
@@ -351,7 +397,11 @@ def get_sessions():
         vehicle_ids = [v["id"] for v in vehicles.data]
         if not vehicle_ids:
             return jsonify({"sessions": []}), 200
-        query = supabase.table("parking_sessions").select("*").in_("vehicle_id", vehicle_ids)
+        query = (
+            supabase.table("parking_sessions")
+            .select("*")
+            .in_("vehicle_id", vehicle_ids)
+        )
     else:
         return jsonify({"sessions": []}), 200
 

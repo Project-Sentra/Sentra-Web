@@ -14,6 +14,7 @@ from routes_common import require_admin
 # 2. USER MANAGEMENT (Admin)
 # ==========================================================================
 
+
 @app.route("/api/admin/users", methods=["GET"])
 @require_admin
 def list_users():

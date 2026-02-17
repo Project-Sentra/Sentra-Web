@@ -59,12 +59,6 @@ export default function Users() {
     }
   }
 
-  const roleColors = {
-    admin: "bg-purple-500/20 text-purple-400",
-    operator: "bg-blue-500/20 text-blue-400",
-    user: "bg-green-500/20 text-green-400",
-  };
-
   return (
     <div className="flex h-screen bg-sentraBlack text-white overflow-hidden">
       <Sidebar facilityName="User Management" />

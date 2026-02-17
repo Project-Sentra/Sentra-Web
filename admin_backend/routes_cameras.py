@@ -13,6 +13,7 @@ from routes_common import require_admin
 # 10. CAMERAS (Admin)
 # ==========================================================================
 
+
 @app.route("/api/cameras", methods=["GET"])
 @require_admin
 def get_cameras():
@@ -30,10 +31,27 @@ def get_cameras():
 def add_camera():
     """POST /api/cameras – Add a new camera."""
     data = request.get_json()
-    if not all([data.get("camera_id"), data.get("name"), data.get("camera_type"), data.get("facility_id")]):
-        return jsonify({"message": "camera_id, name, camera_type, and facility_id are required"}), 400
+    if not all(
+        [
+            data.get("camera_id"),
+            data.get("name"),
+            data.get("camera_type"),
+            data.get("facility_id"),
+        ]
+    ):
+        return (
+            jsonify(
+                {
+                    "message": "camera_id, name, camera_type, and facility_id are required"
+                }
+            ),
+            400,
+        )
     if data["camera_type"] not in ("entry", "exit", "monitoring"):
-        return jsonify({"message": "camera_type must be entry, exit, or monitoring"}), 400
+        return (
+            jsonify({"message": "camera_type must be entry, exit, or monitoring"}),
+            400,
+        )
 
     camera = {
         "facility_id": data["facility_id"],

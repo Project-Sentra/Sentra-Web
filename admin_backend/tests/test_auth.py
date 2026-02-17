@@ -41,11 +41,13 @@ def test_signup_invalid_role(client):
     """Signup with invalid role should return 400."""
     resp = client.post(
         "/api/auth/signup",
-        data=json.dumps({
-            "email": "test@test.com",
-            "password": "test123",
-            "role": "superadmin",
-        }),
+        data=json.dumps(
+            {
+                "email": "test@test.com",
+                "password": "test123",
+                "role": "superadmin",
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 400
@@ -70,11 +72,13 @@ def test_signup_success(client, mock_supabase):
 
     resp = client.post(
         "/api/auth/signup",
-        data=json.dumps({
-            "email": "test@test.com",
-            "password": "test123456",
-            "full_name": "Test User",
-        }),
+        data=json.dumps(
+            {
+                "email": "test@test.com",
+                "password": "test123456",
+                "full_name": "Test User",
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 201
@@ -114,7 +118,15 @@ def test_login_success(client, mock_supabase):
     table_mock.eq.return_value = table_mock
     table_mock.limit.return_value = table_mock
     table_mock.execute.return_value = MagicMock(
-        data=[{"id": 1, "email": "test@test.com", "full_name": "Test", "phone": "", "role": "user"}]
+        data=[
+            {
+                "id": 1,
+                "email": "test@test.com",
+                "full_name": "Test",
+                "phone": "",
+                "role": "user",
+            }
+        ]
     )
     mock_supabase.table.return_value = table_mock
 
