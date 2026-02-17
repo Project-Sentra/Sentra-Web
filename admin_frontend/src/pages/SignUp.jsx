@@ -20,7 +20,7 @@
 
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../services/api";
 
 import LogoMain from "../assets/logo_main.png";
 import LogoNoText from "../assets/logo_notext.png";
@@ -45,7 +45,7 @@ export default function SignUp() {
 
     try {
       // Send registration request to the backend
-      const response = await axios.post("http://127.0.0.1:5000/api/signup", {
+      const response = await api.post("/auth/signup", {
         email: email,
         password: password,
         full_name: name,

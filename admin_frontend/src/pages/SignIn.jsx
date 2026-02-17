@@ -19,7 +19,7 @@
 
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../services/api";
 
 import LogoMain from "../assets/logo_main.png";
 import LogoNoText from "../assets/logo_notext.png";
@@ -36,7 +36,7 @@ export default function SignIn() {
 
     try {
       // Call the backend login endpoint
-      const response = await axios.post("http://127.0.0.1:5000/api/login", {
+      const response = await api.post("/auth/login", {
         email: email,
         password: password,
       });
