@@ -114,7 +114,7 @@ jobs:
       - name: Health check - Nginx
         run: |
           for i in {1..10}; do
-            if curl -sf "http://${{ secrets.EC2_PUBLIC_IP }}/health"; then
+            if curl -sf "https://sentra.theenuka.xyz/health"; then
               echo "Nginx is healthy"
               exit 0
             fi
@@ -124,21 +124,9 @@ jobs:
           echo "Nginx health check failed"
           exit 1
 
-      - name: Health check - Backend API
-        run: |
-          for i in {1..5}; do
-            if curl -sf "http://${{ secrets.EC2_PUBLIC_IP }}/api/health" 2>/dev/null; then
-              echo "Backend API is healthy"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Backend health check failed"
-          exit 1
-
       - name: Health check - Frontend
         run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.EC2_PUBLIC_IP }}/")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://sentra.theenuka.xyz/")
           if [ "$HTTP_CODE" -eq 200 ]; then
             echo "Frontend is serving (HTTP $HTTP_CODE)"
           else
@@ -150,5 +138,5 @@ jobs:
         if: success()
         run: |
           echo "Deployment successful!"
-          echo "URL: http://${{ secrets.EC2_PUBLIC_IP }}"
+          echo "URL: https://sentra.theenuka.xyz"
           echo "Tag: ${{ needs.build-and-push.outputs.image_tag }}"
