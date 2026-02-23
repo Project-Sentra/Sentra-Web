@@ -1,28 +1,29 @@
 /**
  * ParkingMap.jsx - Visual Parking Floor Plan
  * ============================================
- * Renders a grid of parking slots showing which spots are free (green)
- * and which are occupied (red). Used on the Dashboard and InOut pages.
+ * Renders a grid of real parking slots from the database, showing which
+ * spots are free (green), occupied (red), or reserved (orange).
  *
  * Props:
- *   @param {number} rows - Grid rows (default 8).
- *   @param {number} cols - Grid columns (default 4). CSS grid uses cols.
- *   @param {number[]} busyIndices - Array of 0-based indices for occupied spots.
- *
- * The grid always renders rows * cols = total slots, labeled A-01, A-02, etc.
- * The busyIndices come from the backend spot IDs (adjusted to 0-based).
+ *   @param {Array} spots - Array of spot objects from the API, each with
+ *     { id, spot_name, is_occupied, is_reserved, spot_type, is_active }.
+ *   @param {number} cols - Grid columns (default 4).
  */
 
 import React from "react";
 
-/** Individual parking slot cell. Green = free, Red = occupied. */
-function Slot({ busy = false, label }) {
+/** Individual parking slot cell. */
+function Slot({ label, status }) {
+  const styles = {
+    occupied:  "bg-red-900/20 border-red-900/50 text-red-500",
+    reserved:  "bg-orange-900/20 border-orange-900/50 text-orange-400",
+    available: "bg-green-900/20 border-green-900/50 text-green-500",
+  };
+
   return (
     <div
       className={`h-12 rounded-md flex items-center justify-center text-xs font-medium border transition-colors ${
-        busy 
-          ? "bg-red-900/20 border-red-900/50 text-red-500" 
-          : "bg-green-900/20 border-green-900/50 text-green-500"
+        styles[status] || styles.available
       }`}
     >
       {label}
@@ -30,10 +31,7 @@ function Slot({ busy = false, label }) {
   );
 }
 
-export default function ParkingMap({ rows = 8, cols = 4, busyIndices = [] }) {
-  const total = rows * cols;
-  const busySet = new Set(busyIndices);
-  
+export default function ParkingMap({ spots = [], cols = 4 }) {
   return (
     <div className="bg-[#151515] border border-[#232323] rounded-2xl p-6 w-full h-full">
       <div className="flex justify-between items-center mb-6">
@@ -41,18 +39,33 @@ export default function ParkingMap({ rows = 8, cols = 4, busyIndices = [] }) {
         <div className="flex gap-4 text-xs">
           <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span> Free</div>
           <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span> Occupied</div>
+          <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-orange-400"></span> Reserved</div>
         </div>
       </div>
-      
-      <div className="grid grid-cols-4 gap-3">
-        {Array.from({ length: total }).map((_, i) => (
-          <Slot 
-            key={i} 
-            busy={busySet.has(i)} 
-            label={`A-${String(i+1).padStart(2,'0')}`} 
-          />
-        ))}
-      </div>
+
+      {spots.length === 0 ? (
+        <p className="text-gray-500 text-center py-8 text-sm">No spots configured yet.</p>
+      ) : (
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+        >
+          {spots.map((spot) => {
+            const status = spot.is_occupied
+              ? "occupied"
+              : spot.is_reserved
+              ? "reserved"
+              : "available";
+            return (
+              <Slot
+                key={spot.id}
+                label={spot.spot_name}
+                status={status}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

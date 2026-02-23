@@ -57,6 +57,9 @@ export default function Sidebar({ facilityName = "Parking Facility" }) {
           <NavLink to={linkBase} end className={linkClass}>
             Dashboard
           </NavLink>
+          <NavLink to={`${linkBase}/slots`} className={linkClass}>
+            Slot Management
+          </NavLink>
           <NavLink to={`${linkBase}/inout`} className={linkClass}>
             In & Out
           </NavLink>

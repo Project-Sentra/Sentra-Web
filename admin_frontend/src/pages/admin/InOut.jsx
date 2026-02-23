@@ -6,16 +6,17 @@
  *   - Duration and parking fee (LKR)
  *   - Active sessions show "—" for exit time, duration, and amount
  *
- * Also shows a mini parking map on the right side (desktop only)
+ * Also shows a real parking map on the right side (desktop only)
  * and a "Reset All Parking Spots" button for demo/testing.
  *
- * Data is polled every 1 second from GET /api/logs and GET /api/spots.
+ * Data is polled every 3 seconds from the proper facility-scoped APIs.
  */
 
 import React, { useEffect, useState } from "react";
-import api from "../../services/api";
+import { useParams } from "react-router-dom";
 import Sidebar from "../../components/Sidebar";
 import ParkingMap from "../../components/ParkingMap";
+import lprService from "../../services/lprService";
 
 const formatTime = (value) =>
   value ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
@@ -30,16 +31,20 @@ const formatDuration = (minutes) => {
 };
 
 export default function InOut() {
+  const { facilityId } = useParams();
+  const fid = parseInt(facilityId) || 1;
+
   const [logs, setLogs] = useState([]);
   const [spots, setSpots] = useState([]);
+  const [facilityName, setFacilityName] = useState("Parking Facility");
   const [error, setError] = useState(null);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [loadingSpots, setLoadingSpots] = useState(true);
 
   async function fetchLogs() {
     try {
-      const { data } = await api.get("/logs");
-      setLogs(data?.logs ?? []);
+      const sessions = await lprService.getSessions({ facilityId: fid, all: true, limit: 50 });
+      setLogs(sessions);
       setError(null);
     } catch (err) {
       console.error("Failed to fetch logs", err);
@@ -51,16 +56,24 @@ export default function InOut() {
 
   async function fetchSpots() {
     try {
-      const { data } = await api.get("/spots");
-      setSpots(data?.spots ?? []);
+      const data = await lprService.getSpots(fid);
+      setSpots(data);
     } catch (err) {
       console.error("Failed to fetch spots", err);
-      // Disable error spamming
       if (err.response) {
         setError("Cannot reach backend. Is Flask running on port 5000?");
       }
     } finally {
       setLoadingSpots(false);
+    }
+  }
+
+  async function fetchFacility() {
+    try {
+      const data = await lprService.getFacility(fid);
+      if (data.facility) setFacilityName(data.facility.name);
+    } catch (err) {
+      console.error("Failed to fetch facility", err);
     }
   }
 
@@ -70,7 +83,7 @@ export default function InOut() {
     }
     
     try {
-      await api.post("/reset-system");
+      await lprService.resetSystem(fid);
       fetchLogs();
       fetchSpots();
     } catch (err) {
@@ -79,23 +92,25 @@ export default function InOut() {
     }
   }
 
+  // Fetch facility name once
+  useEffect(() => { fetchFacility(); }, [fid]);
+
+  // Poll data every 3 seconds
   useEffect(() => {
     fetchLogs();
     fetchSpots();
     const id = setInterval(() => {
       fetchLogs();
       fetchSpots();
-    }, 1000);
+    }, 3000);
     return () => clearInterval(id);
-  }, []);
+  }, [fid]);
 
-  const busyIndices = spots
-    .filter((s) => s.is_occupied)
-    .map((s) => s.id - 1);
+  const gridCols = spots.length <= 4 ? 2 : spots.length <= 9 ? 3 : 4;
 
   return (
     <div className="min-h-screen bg-sentraBlack text-white flex">
-      <Sidebar facilityName="Downtown Parking" />
+      <Sidebar facilityName={facilityName} />
 
       <main className="flex-1 p-8">
         {error && (
@@ -128,12 +143,12 @@ export default function InOut() {
                   logs.map((log) => (
                     <tr key={log.id} className="odd:bg-[#151515] even:bg-[#181818] border-t border-[#222]">
                       <td className="px-6 py-3 text-gray-200 font-medium">{log.plate_number}</td>
-                      <td className="px-6 py-3 text-gray-400">{log.spot}</td>
+                      <td className="px-6 py-3 text-gray-400">{log.spot_name || log.spot}</td>
                       <td className="px-6 py-3 text-gray-400">{formatTime(log.entry_time)}</td>
                       <td className="px-6 py-3 text-gray-400">{formatTime(log.exit_time)}</td>
                       <td className="px-6 py-3 text-gray-400">{formatDuration(log.duration_minutes)}</td>
                       <td className="px-6 py-3 text-gray-300">
-                        {log.amount_lkr ? `LKR ${log.amount_lkr.toLocaleString()}` : "—"}
+                        {(log.amount || log.amount_lkr) ? `LKR ${(log.amount || log.amount_lkr).toLocaleString()}` : "—"}
                       </td>
                     </tr>
                   ))
@@ -151,7 +166,7 @@ export default function InOut() {
       </main>
 
       <div className="hidden lg:block w-[420px] p-8">
-        <ParkingMap rows={4} cols={8} busyIndices={busyIndices} />
+        <ParkingMap spots={spots} cols={gridCols} />
         {loadingSpots && (
           <p className="text-center text-gray-500 text-sm mt-3">Updating map…</p>
         )}

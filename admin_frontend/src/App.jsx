@@ -28,6 +28,7 @@ import LiveFeed from './pages/admin/LiveFeed'
 import Users from './pages/admin/Users'
 import Vehicles from './pages/admin/Vehicles'
 import Reservations from './pages/admin/Reservations'
+import SlotManagement from './pages/admin/SlotManagement'
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
         <Route path='admin/vehicles' element={<Vehicles/>} />
         <Route path='admin/reservations' element={<Reservations/>} />
         <Route path='admin/:facilityId' element={<Dashboard/>} />
+        <Route path='admin/:facilityId/slots' element={<SlotManagement/>} />
         <Route path='admin/:facilityId/inout' element={<InOut/>} />
         <Route path='admin/:facilityId/live' element={<LiveFeed/>} />
       </Routes>
