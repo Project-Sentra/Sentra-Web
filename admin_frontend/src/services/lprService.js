@@ -161,18 +161,49 @@ const lprService = {
   },
 
   // ==========================================
-  // Parking Spots
+  // Parking Spots – Full CRUD
   // ==========================================
 
   /** Get all spots for a facility. */
-  async getSpots(facilityId) {
-    const r = await api.get(`/facilities/${facilityId}/spots`);
+  async getSpots(facilityId, includeInactive = false) {
+    const params = includeInactive ? { include_inactive: "true" } : {};
+    const r = await api.get(`/facilities/${facilityId}/spots`, { params });
     return r.data.spots || [];
   },
 
-  /** Initialize spots for a facility. */
-  async initSpots(facilityId, count = 32, prefix = "A") {
-    const r = await api.post(`/facilities/${facilityId}/spots/init`, { count, prefix });
+  /** Get a single spot by ID. */
+  async getSpot(spotId) {
+    const r = await api.get(`/spots/${spotId}`);
+    return r.data.spot;
+  },
+
+  /** Create one or more spots for a facility. */
+  async createSpot(facilityId, spotData) {
+    const r = await api.post(`/facilities/${facilityId}/spots`, spotData);
+    return r.data;
+  },
+
+  /** Initialize spots for a facility (bulk). */
+  async initSpots(facilityId, count = 32, prefix = "A", spotType = "regular") {
+    const r = await api.post(`/facilities/${facilityId}/spots/init`, { count, prefix, spot_type: spotType });
+    return r.data;
+  },
+
+  /** Update a single spot. */
+  async updateSpot(spotId, updates) {
+    const r = await api.put(`/spots/${spotId}`, updates);
+    return r.data;
+  },
+
+  /** Delete a single spot. */
+  async deleteSpot(spotId) {
+    const r = await api.delete(`/spots/${spotId}`);
+    return r.data;
+  },
+
+  /** Adjust total slot count for a facility. */
+  async adjustSpotCount(facilityId, total, prefix = "A") {
+    const r = await api.put(`/facilities/${facilityId}/spots/adjust-count`, { total, prefix });
     return r.data;
   },
 

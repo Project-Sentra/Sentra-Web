@@ -113,14 +113,13 @@ export default function Dashboard() {
 
   // Derive occupancy from either stats or raw spots
   const occupiedCount = stats?.spots?.occupied ?? spots.filter((s) => s.is_occupied).length;
-  const totalSpots = stats?.spots?.total ?? (spots.length || 32);
+  const totalSpots = stats?.spots?.total ?? spots.length;
   const freeSlots = stats?.spots?.available ?? (totalSpots - occupiedCount);
   const todayRevenue = stats?.today?.revenue ?? 0;
   const todayEntries = stats?.today?.entries ?? 0;
 
-  const busyIndices = spots
-    .filter((s) => s.is_occupied)
-    .map((_, i) => spots.indexOf(spots.filter(s => s.is_occupied)[i]));
+  // Determine grid columns based on spot count
+  const gridCols = spots.length <= 4 ? 2 : spots.length <= 9 ? 3 : 4;
 
   return (
     <div className="flex h-screen bg-sentraBlack text-white overflow-hidden">
@@ -203,7 +202,7 @@ export default function Dashboard() {
             {loading ? (
               <p className="text-gray-500 animate-pulse">Loading map data...</p>
             ) : spots.length ? (
-              <ParkingMap rows={4} cols={8} busyIndices={busyIndices} />
+              <ParkingMap spots={spots} cols={gridCols} />
             ) : (
               <div className="text-gray-500 text-center py-10">
                 No parking floor plan data available.

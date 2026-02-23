@@ -23,13 +23,20 @@ def vehicle_entry():
 
     Body: { "plate_number", "facility_id", "entry_method"?: "lpr"|"manual"|"qr_code" }
 
-    Flow:
-      1. Look up plate in vehicles table → determine if registered
-      2. Check for active reservation → if found, use reserved spot
-      3. Check for active subscription → if found, skip payment
-      4. Otherwise, find first free spot (walk-in)
-      5. Mark spot occupied, create session, notify user if registered
-      6. Return gate_action: "open" if registered, "pending" if not
+    Three scenarios:
+      Scenario 1 – Registered user WITH pre-reservation:
+        LPR reads plate → reservation found → reserved spot used → gate opens.
+        Billing starts from the *scheduled reservation time* (reserved_start).
+
+      Scenario 2 – Registered user WITHOUT reservation:
+        LPR reads plate → active registration found → system auto-assigns
+        an available spot → gate opens → push notification sent to user
+        with assigned spot info. Billing starts at moment of entry.
+
+      Scenario 3 – Unregistered / new user:
+        LPR reads plate → no matching registration → gate stays CLOSED.
+        Response instructs kiosk / display to show QR code for registration.
+        Once registered, vehicle follows Scenario 2 on next attempt.
 
     This endpoint is PUBLIC so the LPR service can call it.
     """
@@ -77,11 +84,42 @@ def vehicle_entry():
     user_id = vehicle_data["user_id"] if vehicle_data else None
     is_registered = vehicle_data is not None
 
+    # ── Scenario 3: Unregistered vehicle → deny entry ──────────────
+    if not is_registered:
+        # Log the detection so the admin can see it
+        try:
+            supabase.table("detection_logs").insert(
+                {
+                    "facility_id": facility_id,
+                    "plate_number": plate,
+                    "is_registered": False,
+                    "action_taken": "denied",
+                }
+            ).execute()
+        except Exception:
+            pass
+
+        return (
+            jsonify(
+                {
+                    "message": (
+                        f"Vehicle {plate} is not registered. "
+                        "Please scan the QR code at the kiosk to register via the Sentra app."
+                    ),
+                    "is_registered": False,
+                    "gate_action": "deny",
+                    "requires_registration": True,
+                }
+            ),
+            403,
+        )
+
     session_type = "walk_in"
     reservation_id = None
     spot = None
+    billing_start = datetime.now(timezone.utc)  # default: now
 
-    # Check for active reservation
+    # ── Scenario 1: Check for active reservation ───────────────────
     if vehicle_id:
         res = (
             supabase.table("reservations")
@@ -96,6 +134,17 @@ def vehicle_entry():
             reservation = res.data[0]
             reservation_id = reservation["id"]
             session_type = "reserved"
+
+            # Billing starts from the scheduled reservation time
+            reserved_start_str = reservation.get("reserved_start")
+            if reserved_start_str:
+                try:
+                    billing_start = datetime.fromisoformat(
+                        reserved_start_str.replace("Z", "+00:00")
+                    )
+                except (ValueError, TypeError):
+                    pass  # fallback to now
+
             # Use the reserved spot
             if reservation.get("spot_id"):
                 spot_result = (
@@ -129,7 +178,7 @@ def vehicle_entry():
         if sub.data:
             session_type = "subscription"
 
-    # Find a free spot if no reservation spot
+    # ── Scenario 2: auto-assign a free spot (walk-in / subscription) ─
     if not spot:
         spot_result = (
             supabase.table("parking_spots")
@@ -154,7 +203,7 @@ def vehicle_entry():
         }
     ).eq("id", spot["id"]).execute()
 
-    # Create parking session
+    # Create parking session (entry_time = billing start)
     session = {
         "vehicle_id": vehicle_id,
         "facility_id": facility_id,
@@ -162,27 +211,41 @@ def vehicle_entry():
         "reservation_id": reservation_id,
         "plate_number": plate,
         "spot_name": spot["spot_name"],
-        "entry_time": datetime.now(timezone.utc).isoformat(),
+        "entry_time": billing_start.isoformat(),
         "session_type": session_type,
         "entry_method": entry_method,
     }
     session_result = supabase.table("parking_sessions").insert(session).execute()
 
-    # Notify registered user
+    # Notify registered user (push notification with assigned spot)
     if user_id:
+        if session_type == "reserved":
+            notif_title = "Reservation Checked In"
+            notif_msg = (
+                f"Welcome! Your reserved spot {spot['spot_name']} is ready. "
+                f"Vehicle: {plate}."
+            )
+        else:
+            notif_title = "Spot Assigned"
+            notif_msg = (
+                f"Your vehicle {plate} has been assigned to spot {spot['spot_name']}. "
+                "Please proceed to your assigned spot."
+            )
+
         _create_notification(
             user_id,
-            "Vehicle Entered",
-            f"Your vehicle {plate} has been parked at {spot['spot_name']}.",
+            notif_title,
+            notif_msg,
             "entry",
             {
                 "session_id": session_result.data[0]["id"],
                 "spot_name": spot["spot_name"],
+                "facility_id": facility_id,
             },
         )
 
-    # Determine gate action
-    gate_action = "open" if is_registered else "pending"
+    # Gate always opens for registered vehicles
+    gate_action = "open"
 
     return (
         jsonify(
