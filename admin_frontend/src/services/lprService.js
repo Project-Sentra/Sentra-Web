@@ -299,12 +299,19 @@ const lprService = {
   },
 
   /** Get reservations (user's or all for admin). */
-  async getReservations({ all, status } = {}) {
+  async getReservations({ all, status, facilityId } = {}) {
     const params = {};
     if (all) params.all = "true";
     if (status) params.status = status;
+    if (facilityId) params.facility_id = facilityId;
     const r = await api.get("/reservations", { params });
     return r.data.reservations || [];
+  },
+
+  /** Get a single reservation with full detail. */
+  async getReservation(reservationId) {
+    const r = await api.get(`/reservations/${reservationId}`);
+    return r.data.reservation;
   },
 
   /** Cancel or update a reservation. */
