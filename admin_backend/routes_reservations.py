@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import uuid
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_auth, _create_notification
+from routes_common import require_auth, require_admin, _create_notification
 
 # ==========================================================================
 # 6. RESERVATIONS
@@ -113,16 +113,19 @@ def get_reservations():
     """
     GET /api/reservations
     - Users: their reservations
-    - Admin: all reservations (with ?all=true)
+    - Admin: all reservations (with ?all=true), filterable by status and facility_id
     """
-    if request.args.get("all") == "true" and request.db_user["role"] in (
+    is_admin = request.args.get("all") == "true" and request.db_user["role"] in (
         "admin",
         "operator",
-    ):
+    )
+
+    if is_admin:
         query = (
             supabase.table("reservations")
             .select(
-                "*, users(email, full_name), vehicles(plate_number), facilities(name), parking_spots(spot_name)"
+                "*, users(id, email, full_name, phone), vehicles(plate_number, make, model), "
+                "facilities(name), parking_spots(spot_name, spot_type)"
             )
             .order("reserved_start", desc=True)
         )
@@ -140,56 +143,160 @@ def get_reservations():
     if status_filter:
         query = query.eq("status", status_filter)
 
-    result = query.limit(100).execute()
+    facility_filter = request.args.get("facility_id")
+    if facility_filter:
+        query = query.eq("facility_id", int(facility_filter))
+
+    result = query.limit(200).execute()
     return jsonify({"reservations": result.data}), 200
+
+
+@app.route("/api/reservations/<int:reservation_id>", methods=["GET"])
+@require_auth
+def get_reservation_detail(reservation_id):
+    """GET /api/reservations/:id – Get full reservation detail (admin)."""
+    res = (
+        supabase.table("reservations")
+        .select(
+            "*, users(id, email, full_name, phone), vehicles(plate_number, make, model), "
+            "facilities(name, address, hourly_rate), parking_spots(spot_name, spot_type, floor_id)"
+        )
+        .eq("id", reservation_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        return jsonify({"message": "Reservation not found"}), 404
+    return jsonify({"reservation": res.data[0]}), 200
 
 
 @app.route("/api/reservations/<int:reservation_id>", methods=["PUT"])
 @require_auth
 def update_reservation(reservation_id):
-    """PUT /api/reservations/:id – Update or cancel a reservation."""
+    """
+    PUT /api/reservations/:id – Perform admin actions on a reservation.
+
+    Body: { "action": "cancel" | "confirm" | "check_in" | "complete" | "no_show" }
+      or  { "reserved_start", "reserved_end", "notes", "amount" } for general edits.
+    """
     data = request.get_json()
     action = data.get("action")
+    now_iso = datetime.now(timezone.utc).isoformat()
 
+    # Fetch reservation
+    res = (
+        supabase.table("reservations")
+        .select("*")
+        .eq("id", reservation_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        return jsonify({"message": "Reservation not found"}), 404
+
+    reservation = res.data[0]
+
+    # ---------- ACTION: cancel ----------
     if action == "cancel":
-        # Free the reserved spot
-        res = (
-            supabase.table("reservations")
-            .select("spot_id, user_id")
-            .eq("id", reservation_id)
-            .limit(1)
-            .execute()
+        if reservation["spot_id"]:
+            supabase.table("parking_spots").update({"is_reserved": False}).eq(
+                "id", reservation["spot_id"]
+            ).execute()
+
+        supabase.table("reservations").update(
+            {"status": "cancelled", "updated_at": now_iso}
+        ).eq("id", reservation_id).execute()
+
+        _create_notification(
+            reservation["user_id"],
+            "Reservation Cancelled",
+            "Your parking reservation has been cancelled by the administrator.",
+            "reservation",
+            {"reservation_id": reservation_id},
         )
-        if res.data:
-            if res.data[0]["spot_id"]:
-                supabase.table("parking_spots").update({"is_reserved": False}).eq(
-                    "id", res.data[0]["spot_id"]
-                ).execute()
-
-            supabase.table("reservations").update(
-                {
-                    "status": "cancelled",
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-            ).eq("id", reservation_id).execute()
-
-            _create_notification(
-                res.data[0]["user_id"],
-                "Reservation Cancelled",
-                "Your parking reservation has been cancelled.",
-                "reservation",
-                {"reservation_id": reservation_id},
-            )
-
         return jsonify({"message": "Reservation cancelled"}), 200
 
-    # General update (time changes, etc.)
+    # ---------- ACTION: confirm ----------
+    if action == "confirm":
+        if reservation["status"] not in ("pending",):
+            return jsonify({"message": f"Cannot confirm a {reservation['status']} reservation"}), 400
+        supabase.table("reservations").update(
+            {"status": "confirmed", "updated_at": now_iso}
+        ).eq("id", reservation_id).execute()
+
+        _create_notification(
+            reservation["user_id"],
+            "Reservation Confirmed",
+            "Your parking reservation has been confirmed by the administrator.",
+            "reservation",
+            {"reservation_id": reservation_id},
+        )
+        return jsonify({"message": "Reservation confirmed"}), 200
+
+    # ---------- ACTION: check_in ----------
+    if action == "check_in":
+        if reservation["status"] not in ("confirmed", "pending"):
+            return jsonify({"message": f"Cannot check in a {reservation['status']} reservation"}), 400
+        supabase.table("reservations").update(
+            {"status": "checked_in", "updated_at": now_iso}
+        ).eq("id", reservation_id).execute()
+        return jsonify({"message": "Reservation checked in"}), 200
+
+    # ---------- ACTION: complete ----------
+    if action == "complete":
+        if reservation["status"] not in ("checked_in", "confirmed"):
+            return jsonify({"message": f"Cannot complete a {reservation['status']} reservation"}), 400
+
+        # Free the spot
+        if reservation["spot_id"]:
+            supabase.table("parking_spots").update(
+                {"is_reserved": False, "is_occupied": False}
+            ).eq("id", reservation["spot_id"]).execute()
+
+        supabase.table("reservations").update(
+            {"status": "completed", "payment_status": "paid", "updated_at": now_iso}
+        ).eq("id", reservation_id).execute()
+
+        _create_notification(
+            reservation["user_id"],
+            "Reservation Completed",
+            "Your parking session has been completed. Thank you!",
+            "reservation",
+            {"reservation_id": reservation_id},
+        )
+        return jsonify({"message": "Reservation completed"}), 200
+
+    # ---------- ACTION: no_show ----------
+    if action == "no_show":
+        if reservation["status"] not in ("confirmed", "pending"):
+            return jsonify({"message": f"Cannot mark a {reservation['status']} reservation as no-show"}), 400
+
+        # Free the spot
+        if reservation["spot_id"]:
+            supabase.table("parking_spots").update({"is_reserved": False}).eq(
+                "id", reservation["spot_id"]
+            ).execute()
+
+        supabase.table("reservations").update(
+            {"status": "no_show", "updated_at": now_iso}
+        ).eq("id", reservation_id).execute()
+
+        _create_notification(
+            reservation["user_id"],
+            "Reservation No-Show",
+            "You did not show up for your reservation. The spot has been released.",
+            "reservation",
+            {"reservation_id": reservation_id},
+        )
+        return jsonify({"message": "Reservation marked as no-show"}), 200
+
+    # ---------- General update (no action) ----------
     updates = {}
-    for field in ["reserved_start", "reserved_end", "notes"]:
+    for field in ["reserved_start", "reserved_end", "notes", "amount", "payment_status"]:
         if field in data:
             updates[field] = data[field]
     if updates:
-        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+        updates["updated_at"] = now_iso
         supabase.table("reservations").update(updates).eq(
             "id", reservation_id
         ).execute()
