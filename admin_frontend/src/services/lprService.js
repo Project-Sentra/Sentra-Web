@@ -445,7 +445,19 @@ const lprService = {
     return r.data;
   },
 
-  /** Top up wallet. */
+  /** Create Stripe PaymentIntent for wallet top-up. */
+  async createPaymentIntent(amount) {
+    const r = await api.post("/payments/create-intent", { amount });
+    return r.data; // { clientSecret, paymentIntentId }
+  },
+
+  /** Confirm wallet top-up after Stripe payment succeeds. */
+  async confirmTopup(paymentIntentId) {
+    const r = await api.post("/wallet/confirm-topup", { payment_intent_id: paymentIntentId });
+    return r.data;
+  },
+
+  /** Top up wallet (legacy / fallback). */
   async topupWallet(amount, paymentMethod = "card") {
     const r = await api.post("/wallet/topup", { amount, payment_method: paymentMethod });
     return r.data;

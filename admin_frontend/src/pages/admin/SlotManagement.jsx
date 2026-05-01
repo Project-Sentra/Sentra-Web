@@ -142,6 +142,8 @@ export default function SlotManagement() {
       spot_name: spot.spot_name,
       spot_type: spot.spot_type || "regular",
       is_active: spot.is_active !== false,
+      is_occupied: spot.is_occupied || false,
+      is_reserved: spot.is_reserved || false,
     });
     setFormError("");
   }
@@ -157,6 +159,17 @@ export default function SlotManagement() {
       setFormError(err?.response?.data?.message || "Failed to update spot");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Handle manual state change helper
+  function setManualStatus(status) {
+    if (status === "available") {
+      setEditForm(p => ({ ...p, is_occupied: false, is_reserved: false }));
+    } else if (status === "occupied") {
+      setEditForm(p => ({ ...p, is_occupied: true, is_reserved: false }));
+    } else if (status === "reserved") {
+      setEditForm(p => ({ ...p, is_occupied: false, is_reserved: true }));
     }
   }
 
@@ -315,8 +328,38 @@ export default function SlotManagement() {
             <form onSubmit={handleEdit} className="space-y-4">
               <Field label="Spot Name" value={editForm.spot_name} onChange={v => setEditForm(p => ({ ...p, spot_name: v }))} />
               <SelectField label="Spot Type" value={editForm.spot_type} onChange={v => setEditForm(p => ({ ...p, spot_type: v }))} options={SPOT_TYPES} />
+              
               <div>
-                <label className="text-xs text-gray-400 block mb-2">Active</label>
+                <label className="text-xs text-gray-400 block mb-2">Manual Status</label>
+                <div className="flex gap-2">
+                  {[
+                    { id: "available", label: "Available", color: "bg-green-500/20 text-green-400 border-green-500/50" },
+                    { id: "occupied", label: "Occupied", color: "bg-red-500/20 text-red-400 border-red-500/50" },
+                    { id: "reserved", label: "Reserved", color: "bg-orange-500/20 text-orange-400 border-orange-500/50" },
+                  ].map(s => {
+                    const isActive = 
+                      (s.id === "available" && !editForm.is_occupied && !editForm.is_reserved) ||
+                      (s.id === "occupied" && editForm.is_occupied) ||
+                      (s.id === "reserved" && editForm.is_reserved);
+                    
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setManualStatus(s.id)}
+                        className={`flex-1 px-2 py-2 rounded-lg text-[10px] font-bold uppercase border transition ${
+                          isActive ? s.color : "bg-[#222] text-gray-500 border-[#333] hover:text-gray-300"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 block mb-2">Active Status</label>
                 <button
                   type="button"
                   onClick={() => setEditForm(p => ({ ...p, is_active: !p.is_active }))}

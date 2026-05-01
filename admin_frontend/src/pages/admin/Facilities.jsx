@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import lprService from "../../services/lprService";
+import { supabase } from "../../services/supabase";
 
 function MenuButton() {
   const [open, setOpen] = useState(false);
@@ -56,6 +57,19 @@ function MenuButton() {
           <NavLink to="/admin/reservations" className={({ isActive }) => (isActive ? "text-sentraYellow block px-3 py-2 rounded" : "text-gray-300 block px-3 py-2 rounded hover:text-white")} onClick={() => setOpen(false)}>
             Reservations
           </NavLink>
+          <div className="my-1 h-px bg-[#333]" />
+          <button
+            onClick={() => {
+              setOpen(false);
+              // Sign out from Supabase + clear localStorage
+              supabase.auth.signOut().catch(() => {});
+              localStorage.clear();
+              window.location.href = "/signin";
+            }}
+            className="text-red-400 block w-full text-left px-3 py-2 rounded hover:text-red-300 hover:bg-white/5"
+          >
+            Logout
+          </button>
         </div>
       )}
     </div>

@@ -21,6 +21,7 @@ import { Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
+import AuthCallback from './pages/AuthCallback'
 import Facilities from './pages/admin/Facilities'
 import Dashboard from './pages/admin/Dashboard'
 import InOut from './pages/admin/InOut'
@@ -29,6 +30,7 @@ import Users from './pages/admin/Users'
 import Vehicles from './pages/admin/Vehicles'
 import Reservations from './pages/admin/Reservations'
 import SlotManagement from './pages/admin/SlotManagement'
+import Wallet from './pages/admin/Wallet'
 
 export default function App() {
   return (
@@ -38,9 +40,11 @@ export default function App() {
         <Route path='/' element={<Home/>}/>
         <Route path='signin' element={<SignIn/>}/>
         <Route path='signup' element={<SignUp/>}/>
+        <Route path='auth/callback' element={<AuthCallback/>}/>
 
         {/* Admin routes - require authentication (enforced per-page) */}
         <Route path='admin' element={<Facilities/>} />
+        <Route path='admin/wallet' element={<Wallet/>} />
         <Route path='admin/users' element={<Users/>} />
         <Route path='admin/vehicles' element={<Vehicles/>} />
         <Route path='admin/reservations' element={<Reservations/>} />

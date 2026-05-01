@@ -173,7 +173,6 @@ def update_spot(spot_id):
     if not updates:
         return jsonify({"message": "No valid fields to update"}), 400
 
-    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     supabase.table("parking_spots").update(updates).eq("id", spot_id).execute()
 
     # If active status changed, re-sync facility total
