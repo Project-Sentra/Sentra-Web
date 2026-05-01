@@ -201,3 +201,124 @@ def update_profile():
     supabase.table("users").update(updates).eq("id", request.db_user["id"]).execute()
 
     return jsonify({"message": "Profile updated"}), 200
+
+
+# ==========================================================================
+# 2. SOCIAL / OAUTH LOGIN
+# ==========================================================================
+
+
+@app.route("/api/auth/social-login", methods=["POST"])
+@require_auth
+def social_login():
+    """
+    POST /api/auth/social-login
+    Called after OAuth (Google/Apple) to ensure a user record exists in the DB.
+
+    The @require_auth decorator validates the Supabase JWT and sets:
+      - request.current_user  (Supabase auth user object)
+      - request.db_user       (local DB record, or None if first login)
+
+    Returns the same shape as /api/auth/login so the frontend can store
+    the user info in localStorage identically.
+    """
+    auth_user = request.current_user  # set by @require_auth
+
+    if request.db_user:
+        # User record already exists — just return it
+        user = request.db_user
+        return (
+            jsonify(
+                {
+                    "message": "Login successful!",
+                    "user": {
+                        "id": auth_user.id,
+                        "db_id": user["id"],
+                        "email": user["email"],
+                        "full_name": user.get("full_name", ""),
+                        "phone": user.get("phone", ""),
+                        "role": user.get("role", "user"),
+                    },
+                }
+            ),
+            200,
+        )
+
+    # ── First-time social login: create the user record ──────────────
+    try:
+        user_meta = auth_user.user_metadata or {}
+        full_name = (
+            user_meta.get("full_name")
+            or user_meta.get("name")
+            or user_meta.get("preferred_username", "")
+        )
+        profile_image = (
+            user_meta.get("avatar_url")
+            or user_meta.get("picture", "")
+        )
+
+        user_record = {
+            "email": auth_user.email,
+            "full_name": full_name,
+            "auth_user_id": auth_user.id,
+            "role": "admin",  # web admin panel users default to admin
+            "profile_image": profile_image,
+        }
+        result = supabase.table("users").insert(user_record).execute()
+
+        if not result.data:
+            return jsonify({"message": "Failed to create user record"}), 500
+
+        new_user = result.data[0]
+
+        # Create a wallet for the new user
+        supabase.table("user_wallets").insert(
+            {"user_id": new_user["id"], "balance": 0}
+        ).execute()
+
+        return (
+            jsonify(
+                {
+                    "message": "Account created!",
+                    "user": {
+                        "id": auth_user.id,
+                        "db_id": new_user["id"],
+                        "email": new_user["email"],
+                        "full_name": new_user.get("full_name", ""),
+                        "phone": new_user.get("phone", ""),
+                        "role": new_user.get("role", "admin"),
+                    },
+                }
+            ),
+            201,
+        )
+    except Exception as e:
+        error_msg = str(e)
+        # Handle race condition: user may have been created between check & insert
+        if "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
+            db_user = (
+                supabase.table("users")
+                .select("*")
+                .eq("auth_user_id", auth_user.id)
+                .limit(1)
+                .execute()
+            )
+            if db_user.data:
+                user = db_user.data[0]
+                return (
+                    jsonify(
+                        {
+                            "message": "Login successful!",
+                            "user": {
+                                "id": auth_user.id,
+                                "db_id": user["id"],
+                                "email": user["email"],
+                                "full_name": user.get("full_name", ""),
+                                "phone": user.get("phone", ""),
+                                "role": user.get("role", "user"),
+                            },
+                        }
+                    ),
+                    200,
+                )
+        return jsonify({"message": f"Error: {error_msg}"}), 500

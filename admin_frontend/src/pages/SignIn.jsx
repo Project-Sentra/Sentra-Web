@@ -20,6 +20,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { supabase } from "../services/supabase";
 
 import LogoMain from "../assets/logo_main.png";
 import LogoNoText from "../assets/logo_notext.png";
@@ -62,6 +63,26 @@ export default function SignIn() {
       } else {
         setError("Login failed. Please check your connection.");
       }
+    }
+  };
+
+  /** Handle Google sign-in via Supabase OAuth */
+  const handleGoogleLogin = async () => {
+    setError("");
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (oauthError) {
+        setError(oauthError.message);
+      }
+      // Browser will redirect to Google, then back to /auth/callback
+    } catch (err) {
+      console.error("Google Login Failed:", err);
+      setError("Google sign in failed. Please try again.");
     }
   };
 
@@ -136,7 +157,10 @@ export default function SignIn() {
               </div>
 
               <div className="w-full mt-4 space-y-3">
-                <button className="w-full bg-[#2b2b2b] rounded-md py-3 text-gray-100 flex items-center justify-center gap-3">
+                <button
+                  onClick={handleGoogleLogin}
+                  className="w-full bg-[#2b2b2b] rounded-md py-3 text-gray-100 flex items-center justify-center gap-3 hover:bg-[#333] transition"
+                >
                   <span className="bg-white text-black rounded-full w-6 h-6 flex items-center justify-center font-bold">
                     G
                   </span>
