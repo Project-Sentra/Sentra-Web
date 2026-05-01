@@ -45,27 +45,9 @@ export default function Wallet() {
           <p className="text-gray-400 text-sm mt-1">Monitor system-wide transactions and user balances</p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Admin Stats */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-[#171717] border border-[#232323] p-8 rounded-3xl relative overflow-hidden">
-              <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">My Admin Balance</p>
-              <h2 className="text-5xl font-extrabold mt-4 text-sentraYellow">
-                LKR {wallet.balance?.toLocaleString() || "0"}
-              </h2>
-            </div>
-            
-            <div className="bg-[#171717] border border-[#232323] p-6 rounded-2xl">
-              <h3 className="text-lg font-semibold mb-2">Payment Overview</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">
-                This panel displays all payments processed through the mobile app. 
-                Admins can monitor top-ups, parking fees, and subscription purchases.
-              </p>
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 gap-8">
           {/* Transaction History */}
-          <div className="lg:col-span-3">
+          <div className="w-full">
             <div className="bg-[#171717] border border-[#232323] rounded-3xl overflow-hidden">
               <div className="p-6 border-b border-[#232323]">
                 <h3 className="text-xl font-semibold">Transaction History</h3>
@@ -74,6 +56,7 @@ export default function Wallet() {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="text-gray-500 text-xs uppercase tracking-wider border-b border-[#232323]">
+                      <th className="px-6 py-4 font-medium">User</th>
                       <th className="px-6 py-4 font-medium">Description</th>
                       <th className="px-6 py-4 font-medium">Method</th>
                       <th className="px-6 py-4 font-medium">Date</th>
@@ -83,13 +66,19 @@ export default function Wallet() {
                   <tbody className="divide-y divide-[#232323]">
                     {loading ? (
                       <tr>
-                        <td colSpan="4" className="px-6 py-10 text-center text-gray-500 animate-pulse">
+                        <td colSpan="5" className="px-6 py-10 text-center text-gray-500 animate-pulse">
                           Loading transactions...
                         </td>
                       </tr>
                     ) : payments.length > 0 ? (
                       payments.map((p) => (
                         <tr key={p.id} className="hover:bg-[#1f1f1f] transition-colors">
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-medium text-sentraYellow">
+                              {p.users?.full_name || "System User"}
+                            </p>
+                            <p className="text-[10px] text-gray-500">{p.users?.email || "N/A"}</p>
+                          </td>
                           <td className="px-6 py-4">
                             <p className="text-sm font-medium">{p.description}</p>
                             {p.transaction_ref && (
@@ -116,7 +105,7 @@ export default function Wallet() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="4" className="px-6 py-10 text-center text-gray-500">
+                        <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
                           No transactions yet.
                         </td>
                       </tr>
