@@ -30,6 +30,7 @@ import Users from './pages/admin/Users'
 import Vehicles from './pages/admin/Vehicles'
 import Reservations from './pages/admin/Reservations'
 import SlotManagement from './pages/admin/SlotManagement'
+import Wallet from './pages/admin/Wallet'
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
 
         {/* Admin routes - require authentication (enforced per-page) */}
         <Route path='admin' element={<Facilities/>} />
+        <Route path='admin/wallet' element={<Wallet/>} />
         <Route path='admin/users' element={<Users/>} />
         <Route path='admin/vehicles' element={<Vehicles/>} />
         <Route path='admin/reservations' element={<Reservations/>} />

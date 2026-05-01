@@ -66,6 +66,9 @@ export default function Sidebar({ facilityName = "Parking Facility" }) {
           <NavLink to={`${linkBase}/live`} className={linkClass}>
             Live feed
           </NavLink>
+          <NavLink to="/admin/wallet" className={linkClass}>
+            Payments
+          </NavLink>
 
           <div className="h-px bg-[#232323] my-4"></div>
 
