@@ -13,6 +13,7 @@
  *   font-poppins - Poppins font family, used as the app's typeface
  *
  * Usage in JSX: className="bg-sentraBlack text-sentraYellow font-poppins"
+ * sample theme update dfor Sentra AI
  */
 
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
@@ -38,13 +39,16 @@
     width: 8px;
     height: 8px;
   }
+
   ::-webkit-scrollbar-track {
     background: #111;
   }
+
   ::-webkit-scrollbar-thumb {
     background: #333;
     border-radius: 4px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: #444;
   }

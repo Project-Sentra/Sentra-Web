@@ -35,11 +35,10 @@ export default function CameraTile({
             {title}
           </span>
           <span
-            className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-              isEntry
+            className={`px-2 py-0.5 rounded text-[10px] font-medium ${isEntry
                 ? "bg-green-500/20 text-green-400"
                 : "bg-blue-500/20 text-blue-400"
-            }`}
+              }`}
           >
             {isEntry ? "ENTRY" : "EXIT"}
           </span>
@@ -47,18 +46,17 @@ export default function CameraTile({
         <div className="flex items-center gap-2">
           {/* Status indicator */}
           <div
-            className={`w-2 h-2 rounded-full ${
-              isRunning
+            className={`w-2 h-2 rounded-full ${isRunning
                 ? "bg-green-500 animate-pulse"
                 : hasError
-                ? "bg-red-500"
-                : "bg-gray-500"
-            }`}
+                  ? "bg-red-500"
+                  : "bg-gray-500"
+              }`}
           ></div>
         </div>
       </div>
 
-      {/* Video/Frame Display Area */}
+      {/* Video/Frame Display*/}
       <div className="flex-1 flex items-center justify-center bg-black">
         {frameData ? (
           <img
