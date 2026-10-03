@@ -405,6 +405,15 @@ const lprService = {
     return r.data;
   },
 
+  /** Recent gate events (manual and automatic LPR), newest first. */
+  async getGateEvents({ facilityId, gateId, limit = 50 } = {}) {
+    const params = { limit };
+    if (facilityId) params.facility_id = facilityId;
+    if (gateId) params.gate_id = gateId;
+    const r = await api.get("/gates/events", { params });
+    return r.data.events || [];
+  },
+
   // ==========================================
   // Detection Logs
   // ==========================================

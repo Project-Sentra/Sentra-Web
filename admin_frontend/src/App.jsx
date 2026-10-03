@@ -14,6 +14,7 @@
  *   /admin/:facilityId             -> Dashboard for a specific facility
  *   /admin/:facilityId/inout       -> Entry/exit logs for a facility
  *   /admin/:facilityId/live        -> Live camera feeds for a facility
+ *   /admin/:facilityId/gates       -> Barrier control and gate activity
  */
 
 import React from 'react'
@@ -32,6 +33,7 @@ import Vehicles from './pages/admin/Vehicles'
 import Reservations from './pages/admin/Reservations'
 import SlotManagement from './pages/admin/SlotManagement'
 import Wallet from './pages/admin/Wallet'
+import Gates from './pages/admin/Gates'
 
 export default function App() {
   return (
@@ -54,6 +56,7 @@ export default function App() {
           <Route path='admin/:facilityId/slots' element={<SlotManagement/>} />
           <Route path='admin/:facilityId/inout' element={<InOut/>} />
           <Route path='admin/:facilityId/live' element={<LiveFeed/>} />
+          <Route path='admin/:facilityId/gates' element={<Gates/>} />
         </Route>
       </Routes>
     </div>
