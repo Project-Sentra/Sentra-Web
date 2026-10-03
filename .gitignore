@@ -142,3 +142,6 @@ vite.config.ts.timestamp-*
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# Demo data manifest written by admin_backend/seed_demo_data.py
+.demo_seed.json
