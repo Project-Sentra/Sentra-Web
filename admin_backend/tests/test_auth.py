@@ -37,21 +37,35 @@ def test_signup_short_password(client):
     assert b"at least 6 characters" in resp.data
 
 
-def test_signup_invalid_role(client):
-    """Signup with invalid role should return 400."""
+def test_signup_ignores_requested_role(client, mock_supabase):
+    """A client-supplied role must be ignored: new accounts are always 'user'."""
+    mock_user = MagicMock()
+    mock_user.id = "auth-uuid-123"
+    mock_supabase.auth.sign_up.return_value = MagicMock(user=mock_user)
+
+    table_mock = MagicMock()
+    table_mock.insert.return_value = table_mock
+    table_mock.execute.return_value = MagicMock(data=[{"id": 1}])
+    mock_supabase.table.return_value = table_mock
+
     resp = client.post(
         "/api/auth/signup",
         data=json.dumps(
-            {
-                "email": "test@test.com",
-                "password": "test123",
-                "role": "superadmin",
-            }
+            {"email": "test@test.com", "password": "test123", "role": "admin"}
         ),
         content_type="application/json",
     )
+    assert resp.status_code == 201
+    user_insert = table_mock.insert.call_args_list[0].args[0]
+    assert user_insert["role"] == "user"
+    signup_options = mock_supabase.auth.sign_up.call_args.args[0]["options"]
+    assert signup_options["data"]["role"] == "user"
+
+
+def test_signup_missing_body(client):
+    """Signup with no JSON body should return 400, not crash."""
+    resp = client.post("/api/auth/signup")
     assert resp.status_code == 400
-    assert b"role must be admin, user, or operator" in resp.data
 
 
 def test_signup_success(client, mock_supabase):
