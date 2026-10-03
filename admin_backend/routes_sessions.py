@@ -15,6 +15,7 @@ from routes_common import (
     is_admin_user,
     DEFAULT_HOURLY_RATE,
     _create_notification,
+    normalize_plate,
 )
 from routes_gates import record_lpr_gate_open
 
@@ -53,7 +54,7 @@ def process_vehicle_entry(data):
 
     Called by the SentraAI service (X-Service-Key) or an operator (admin JWT).
     """
-    plate = data.get("plate_number")
+    plate = normalize_plate(data.get("plate_number"))
     facility_id = data.get("facility_id")
     entry_method = data.get("entry_method", "lpr")
 
@@ -295,7 +296,7 @@ def process_vehicle_exit(data):
       4. Process payment (wallet auto-deduct, or mark as pending)
       5. Close session, notify user
     """
-    plate = data.get("plate_number")
+    plate = normalize_plate(data.get("plate_number"))
     payment_method = data.get("payment_method", "wallet")
 
     if not plate:

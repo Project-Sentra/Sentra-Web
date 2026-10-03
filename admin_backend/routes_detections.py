@@ -7,7 +7,7 @@ Endpoints for LPR detection logs.
 from datetime import datetime, timezone
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_admin, require_service_or_admin, get_json_body
+from routes_common import require_admin, require_service_or_admin, get_json_body, normalize_plate
 
 # ==========================================================================
 # 12. DETECTION LOGS
@@ -50,7 +50,7 @@ def process_add_detection(data):
     Auto-checks if the plate is registered and flags it.
     """
     camera_id = data.get("camera_id")
-    plate = data.get("plate_number")
+    plate = normalize_plate(data.get("plate_number"))
 
     if not camera_id or not plate:
         return jsonify({"message": "camera_id and plate_number are required"}), 400

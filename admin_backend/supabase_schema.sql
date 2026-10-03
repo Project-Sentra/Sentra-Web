@@ -1,7 +1,8 @@
 -- =============================================================================
 -- Sentra LPR Parking System - Complete Database Schema (v2.0)
 -- =============================================================================
--- Run this SQL in your Supabase SQL Editor to create all tables.
+-- Run this SQL in your Supabase SQL Editor to create all tables,
+-- then run normalize_plates.sql (plate-number normalization triggers).
 --
 -- This schema supports:
 --   - Admin web dashboard + Mobile app users (shared database)
@@ -52,7 +53,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS vehicles (
     id              BIGSERIAL PRIMARY KEY,
     user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    plate_number    VARCHAR(20) UNIQUE NOT NULL,             -- e.g. "WP CA-1234"
+    plate_number    VARCHAR(20) UNIQUE NOT NULL,             -- canonical, e.g. "WPCA1234" (see normalize_plates.sql)
     make            VARCHAR(50),                             -- e.g. "Toyota"
     model           VARCHAR(50),                             -- e.g. "Corolla"
     color           VARCHAR(30),                             -- e.g. "White"

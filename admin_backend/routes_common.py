@@ -14,6 +14,7 @@ Auth decorators:
 
 import hmac
 import os
+import re
 from functools import wraps
 
 from flask import request, jsonify
@@ -32,6 +33,14 @@ DEFAULT_HOURLY_RATE = 150  # LKR per hour (fallback when facility has no rate)
 DEFAULT_CURRENCY = "LKR"
 
 ADMIN_ROLES = ("admin", "operator")
+
+
+def normalize_plate(plate):
+    """Canonical plate key: uppercase, letters/digits only.
+    "CAG 5124", "cag-5124", "CAG5124" → "CAG5124". The LPR service, mobile app
+    and admin all format plates differently, so every write and lookup uses this.
+    Mirrors the normalize_plate_number() DB trigger (normalize_plates.sql)."""
+    return re.sub(r"[^A-Z0-9]", "", (plate or "").upper())
 
 
 def get_json_body():
