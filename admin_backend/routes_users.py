@@ -7,7 +7,7 @@ Admin-only endpoints for listing and updating users.
 from datetime import datetime, timezone
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_admin
+from routes_common import require_admin, get_json_body
 
 # ==========================================================================
 # 2. USER MANAGEMENT (Admin)
@@ -48,12 +48,27 @@ def get_user(user_id):
 @app.route("/api/admin/users/<int:user_id>", methods=["PUT"])
 @require_admin
 def update_user(user_id):
-    """PUT /api/admin/users/:id – Update user role / active status."""
-    data = request.get_json()
+    """
+    PUT /api/admin/users/:id – Update user role / active status.
+
+    Only role "admin" may change roles (operators cannot escalate privileges).
+    Admins cannot change their own role or deactivate themselves.
+    """
+    data = get_json_body()
+    is_self = request.db_user["id"] == user_id
     updates = {}
-    if "role" in data and data["role"] in ("admin", "user", "operator"):
+
+    if "role" in data:
+        if data["role"] not in ("admin", "user", "operator"):
+            return jsonify({"message": "role must be admin, user, or operator"}), 400
+        if request.db_user["role"] != "admin":
+            return jsonify({"message": "Only admins can change roles"}), 403
+        if is_self:
+            return jsonify({"message": "You cannot change your own role"}), 400
         updates["role"] = data["role"]
     if "is_active" in data:
+        if is_self and not data["is_active"]:
+            return jsonify({"message": "You cannot deactivate your own account"}), 400
         updates["is_active"] = bool(data["is_active"])
 
     if not updates:
