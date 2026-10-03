@@ -209,6 +209,31 @@ def update_profile():
 # ==========================================================================
 
 
+def _social_user_response(auth_user, user, message, status):
+    """Same user shape as /api/auth/login so the frontend stores it identically."""
+    return (
+        jsonify(
+            {
+                "message": message,
+                "user": {
+                    "id": auth_user.id,
+                    "db_id": user["id"],
+                    "email": user["email"],
+                    "full_name": user.get("full_name", ""),
+                    "phone": user.get("phone", ""),
+                    "role": user.get("role", "user"),
+                },
+            }
+        ),
+        status,
+    )
+
+
+def _find_user_by_email(email):
+    result = supabase.table("users").select("*").eq("email", email).limit(1).execute()
+    return result.data[0] if result.data else None
+
+
 @app.route("/api/auth/social-login", methods=["POST"])
 @require_token
 def social_login():
@@ -222,106 +247,87 @@ def social_login():
       - request.current_user  (Supabase auth user object)
       - request.db_user       (local DB record, or None if first login)
 
-    Returns the same shape as /api/auth/login so the frontend can store
-    the user info in localStorage identically.
+    A users row with the same email but no auth link (e.g. created by the
+    mobile app) is linked to this account, but only when the provider has
+    verified the email; otherwise anyone could claim an existing profile.
     """
     auth_user = request.current_user  # set by @require_token
+    user = request.db_user
 
-    if request.db_user and request.db_user.get("is_active") is False:
-        return jsonify({"message": "Account is deactivated"}), 403
+    if not user and auth_user.email:
+        existing = _find_user_by_email(auth_user.email)
+        if existing:
+            if existing.get("auth_user_id"):
+                return (
+                    jsonify(
+                        {
+                            "message": "This email is already registered with "
+                            "another sign-in method. Sign in with that method."
+                        }
+                    ),
+                    409,
+                )
+            if not getattr(auth_user, "email_confirmed_at", None):
+                return jsonify({"message": "Email address is not verified"}), 403
+            linked = (
+                supabase.table("users")
+                .update({"auth_user_id": auth_user.id})
+                .eq("id", existing["id"])
+                .execute()
+            )
+            user = linked.data[0] if linked.data else existing
 
-    if request.db_user:
-        # User record already exists — just return it
-        user = request.db_user
-        return (
-            jsonify(
-                {
-                    "message": "Login successful!",
-                    "user": {
-                        "id": auth_user.id,
-                        "db_id": user["id"],
-                        "email": user["email"],
-                        "full_name": user.get("full_name", ""),
-                        "phone": user.get("phone", ""),
-                        "role": user.get("role", "user"),
-                    },
-                }
-            ),
-            200,
-        )
+    if user:
+        if user.get("is_active") is False:
+            return jsonify({"message": "Account is deactivated"}), 403
+        return _social_user_response(auth_user, user, "Login successful!", 200)
 
     # ── First-time social login: create the user record ──────────────
+    user_meta = auth_user.user_metadata or {}
+    full_name = (
+        user_meta.get("full_name")
+        or user_meta.get("name")
+        or user_meta.get("preferred_username", "")
+    )
+    profile_image = user_meta.get("avatar_url") or user_meta.get("picture", "")
+
     try:
-        user_meta = auth_user.user_metadata or {}
-        full_name = (
-            user_meta.get("full_name")
-            or user_meta.get("name")
-            or user_meta.get("preferred_username", "")
-        )
-        profile_image = user_meta.get("avatar_url") or user_meta.get("picture", "")
-
-        user_record = {
-            "email": auth_user.email,
-            "full_name": full_name,
-            "auth_user_id": auth_user.id,
-            "role": "user",  # never auto-grant admin; promote via /api/admin/users/:id
-            "profile_image": profile_image,
-        }
-        result = supabase.table("users").insert(user_record).execute()
-
-        if not result.data:
-            return jsonify({"message": "Failed to create user record"}), 500
-
-        new_user = result.data[0]
-
-        # Create a wallet for the new user
-        supabase.table("user_wallets").insert(
-            {"user_id": new_user["id"], "balance": 0}
-        ).execute()
-
-        return (
-            jsonify(
+        result = (
+            supabase.table("users")
+            .insert(
                 {
-                    "message": "Account created!",
-                    "user": {
-                        "id": auth_user.id,
-                        "db_id": new_user["id"],
-                        "email": new_user["email"],
-                        "full_name": new_user.get("full_name", ""),
-                        "phone": new_user.get("phone", ""),
-                        "role": new_user.get("role", "user"),
-                    },
+                    "email": auth_user.email,
+                    "full_name": full_name,
+                    "auth_user_id": auth_user.id,
+                    "role": "user",  # never auto-grant admin
+                    "profile_image": profile_image,
                 }
-            ),
-            201,
+            )
+            .execute()
         )
     except Exception as e:
-        error_msg = str(e)
-        # Handle race condition: user may have been created between check & insert
-        if "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
-            db_user = (
+        # Race: a parallel request created the row between check and insert
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            existing = (
                 supabase.table("users")
                 .select("*")
                 .eq("auth_user_id", auth_user.id)
                 .limit(1)
                 .execute()
             )
-            if db_user.data:
-                user = db_user.data[0]
-                return (
-                    jsonify(
-                        {
-                            "message": "Login successful!",
-                            "user": {
-                                "id": auth_user.id,
-                                "db_id": user["id"],
-                                "email": user["email"],
-                                "full_name": user.get("full_name", ""),
-                                "phone": user.get("phone", ""),
-                                "role": user.get("role", "user"),
-                            },
-                        }
-                    ),
-                    200,
+            if existing.data:
+                return _social_user_response(
+                    auth_user, existing.data[0], "Login successful!", 200
                 )
-        return jsonify({"message": f"Error: {error_msg}"}), 500
+        app.logger.exception("social-login: could not create user record")
+        return jsonify({"message": "Could not create your account"}), 500
+
+    if not result.data:
+        return jsonify({"message": "Failed to create user record"}), 500
+
+    new_user = result.data[0]
+    supabase.table("user_wallets").insert(
+        {"user_id": new_user["id"], "balance": 0}
+    ).execute()
+
+    return _social_user_response(auth_user, new_user, "Account created!", 201)
