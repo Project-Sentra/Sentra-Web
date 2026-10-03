@@ -120,3 +120,42 @@ def test_lookup_vehicle_registered(client, mock_supabase):
     data = json.loads(resp.data)
     assert data["registered"] is True
     assert data["has_subscription"] is False
+
+
+def test_normalize_plate():
+    """LPR, app and admin formats all collapse to one canonical key."""
+    from routes_common import normalize_plate
+
+    for raw in ("CAG 5124", "cag-5124", " CAG5124 ", "C.A.G 51-24"):
+        assert normalize_plate(raw) == "CAG5124"
+    assert normalize_plate("WP CA-1234") == "WPCA1234"
+    assert normalize_plate(None) == ""
+
+
+@patch("routes_common.SERVICE_API_KEY", "test-service-key")
+def test_lookup_uses_canonical_plate(client, mock_supabase):
+    """Lookup with the LPR format queries the canonical plate."""
+    table_mock = MagicMock()
+    table_mock.select.return_value = table_mock
+    table_mock.eq.return_value = table_mock
+    table_mock.limit.return_value = table_mock
+    table_mock.execute.return_value = MagicMock(data=[])
+    mock_supabase.table.return_value = table_mock
+
+    resp = client.get("/api/vehicles/lookup/CAG%205124", headers=SERVICE_HEADERS)
+    assert json.loads(resp.data)["plate_number"] == "CAG5124"
+    table_mock.eq.assert_any_call("plate_number", "CAG5124")
+
+
+def test_register_for_other_user_requires_admin(client, mock_supabase):
+    """A regular user can't register a vehicle on someone else's account."""
+    _setup_auth(mock_supabase, role="user")
+
+    with patch("routes_common.supabase", mock_supabase):
+        resp = client.post(
+            "/api/vehicles",
+            data=json.dumps({"plate_number": "CAG 5124", "user_id": 99}),
+            content_type="application/json",
+            headers={"Authorization": "Bearer test-token"},
+        )
+    assert resp.status_code == 403

@@ -82,7 +82,7 @@ export default function Sidebar({ facilityName = "Parking Facility" }) {
             Users
           </NavLink>
           <NavLink to="/admin/vehicles" className={linkClass}>
-            Vehicles
+            Vehicles &amp; Whitelist
           </NavLink>
           <NavLink to="/admin/reservations" className={linkClass}>
             Reservations

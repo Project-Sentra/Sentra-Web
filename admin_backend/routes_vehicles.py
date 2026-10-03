@@ -11,6 +11,8 @@ from routes_common import (
     require_service_or_admin,
     get_json_body,
     is_admin_user,
+    normalize_plate,
+    _create_notification,
 )
 
 # ==========================================================================
@@ -41,28 +43,43 @@ def _load_owned_vehicle(vehicle_id):
 def register_vehicle():
     """
     POST /api/vehicles
-    Register a new vehicle for the current user.
+    Register a vehicle (adds it to the entry whitelist).
+    Users register their own; admins/operators may pass "user_id" to register
+    on behalf of a user — it then shows in that user's app.
 
-    Body: { "plate_number", "make"?, "model"?, "color"?, "year"?, "vehicle_type"? }
+    Body: { "plate_number", "user_id"?, "make"?, "model"?, "color"?, "year"?, "vehicle_type"? }
     """
     data = get_json_body()
-    plate = str(data.get("plate_number") or "").strip().upper()
+    plate = normalize_plate(str(data.get("plate_number") or ""))
     if not plate:
         return jsonify({"message": "plate_number is required"}), 400
+    if len(plate) > 20:
+        return jsonify({"message": "plate_number is too long"}), 400
+
+    owner_id = request.db_user["id"]
+    by_admin = data.get("user_id") is not None
+    if by_admin:
+        if not is_admin_user(request.db_user):
+            return jsonify({"message": "Admin access required"}), 403
+        owner = supabase.table("users").select("id").eq("id", data["user_id"]).limit(1).execute()
+        if not owner.data:
+            return jsonify({"message": "Owner user not found"}), 404
+        owner_id = owner.data[0]["id"]
 
     # Check if plate already registered
     existing = (
         supabase.table("vehicles")
-        .select("id")
+        .select("id, is_active")
         .eq("plate_number", plate)
         .limit(1)
         .execute()
     )
     if existing.data:
-        return jsonify({"message": f"Vehicle {plate} is already registered"}), 409
+        hint = "" if existing.data[0]["is_active"] else " (inactive — reactivate it instead)"
+        return jsonify({"message": f"Vehicle {plate} is already registered{hint}"}), 409
 
     vehicle = {
-        "user_id": request.db_user["id"],
+        "user_id": owner_id,
         "plate_number": plate,
         "make": data.get("make", ""),
         "model": data.get("model", ""),
@@ -71,6 +88,15 @@ def register_vehicle():
         "vehicle_type": data.get("vehicle_type", "car"),
     }
     result = supabase.table("vehicles").insert(vehicle).execute()
+
+    if by_admin:
+        _create_notification(
+            owner_id,
+            "Vehicle Registered",
+            f"Your vehicle {plate} was registered by the parking admin and can now enter.",
+            "system",
+            {"vehicle_id": result.data[0]["id"]},
+        )
     return jsonify({"message": "Vehicle registered", "vehicle": result.data[0]}), 201
 
 
@@ -145,6 +171,7 @@ def lookup_vehicle(plate_number):
 
     Requires the SentraAI service key or an admin JWT (returns owner contact details).
     """
+    plate_number = normalize_plate(plate_number)
     result = (
         supabase.table("vehicles")
         .select("*, users(id, email, full_name, phone)")
