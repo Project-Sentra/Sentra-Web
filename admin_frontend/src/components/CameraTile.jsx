@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 /**
  * Camera tile component with live frame display
@@ -9,8 +9,9 @@ import React from "react";
  * @param {string} props.status - 'stopped', 'running', 'error'
  * @param {string} props.frameData - Base64 encoded frame image
  * @param {Object} props.detection - Latest detection (optional)
- * @param {function} props.onStart - Start camera handler
+ * @param {function} props.onStart - Start camera handler (cameraId, video)
  * @param {function} props.onStop - Stop camera handler
+ * @param {string[]} props.videos - Simulation mode: selectable videos (null = live mode)
  */
 export default function CameraTile({
   title = "Cam 01",
@@ -21,7 +22,9 @@ export default function CameraTile({
   detection,
   onStart,
   onStop,
+  videos,
 }) {
+  const [video, setVideo] = useState("");
   const isRunning = status === "running";
   const hasError = status === "error";
   const isEntry = cameraType === "entry";
@@ -103,10 +106,24 @@ export default function CameraTile({
             {isRunning ? "Live" : hasError ? "Error" : "Idle"}
           </span>
           <div className="flex gap-2">
-            {!isRunning && !hasError && onStart && (
+            {!isRunning && videos && (
+              <select
+                value={video}
+                onChange={(e) => setVideo(e.target.value)}
+                aria-label={`${title} simulation video`}
+                className="bg-black/70 border border-[#333] text-white text-xs rounded px-2 py-1 max-w-40"
+              >
+                <option value="">Select video…</option>
+                {videos.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            )}
+            {!isRunning && onStart && (
               <button
-                onClick={() => onStart(cameraId)}
-                className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition"
+                onClick={() => onStart(cameraId, video || undefined)}
+                disabled={videos && !video}
+                className="px-3 py-1 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white text-xs rounded transition"
               >
                 Start
               </button>

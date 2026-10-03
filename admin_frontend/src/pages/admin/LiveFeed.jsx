@@ -18,14 +18,27 @@
  *   - Entry/exit confirmations are sent back over WebSocket
  */
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import Sidebar from "../../components/Sidebar";
 import CameraTile from "../../components/CameraTile";
 import PlateConfirmModal from "../../components/PlateConfirmModal";
 import useWebSocket from "../../hooks/useWebSocket";
 import lprService from "../../services/lprService";
 
+// Confidence filter: when on, only detections above this are shown
+const MIN_SHOW_CONFIDENCE = 0.55;
+
 export default function LiveFeed() {
+  const [confFilter, setConfFilter] = useState(
+    () => localStorage.getItem("sentra.confFilter") !== "off"
+  );
+  // Ref so the WebSocket handler (bound once on connect) sees the current value
+  const confFilterRef = useRef(confFilter);
+  useEffect(() => {
+    confFilterRef.current = confFilter;
+    localStorage.setItem("sentra.confFilter", confFilter ? "on" : "off");
+  }, [confFilter]);
+
   const [frames, setFrames] = useState({});
   const [detections, setDetections] = useState({});
   const [currentDetection, setCurrentDetection] = useState(null);
@@ -43,6 +56,8 @@ export default function LiveFeed() {
 
   // Detection handler
   const handleDetection = useCallback((data) => {
+    if (confFilterRef.current && !(data.confidence > MIN_SHOW_CONFIDENCE)) return;
+
     // Update camera detection
     setDetections((prev) => ({
       ...prev,
@@ -80,6 +95,8 @@ export default function LiveFeed() {
   const {
     isConnected,
     cameras,
+    mode,
+    videos,
     startCamera,
     stopCamera,
     startAllCameras,
@@ -92,6 +109,10 @@ export default function LiveFeed() {
     onEntryResult: handleEntryResult,
     onExitResult: handleExitResult,
   });
+
+  // Simulation mode: operator picks a video per camera; Start All is disabled
+  const isSimulated = mode === "simulated";
+  const canStartAll = isConnected && !isSimulated;
 
   // Check LPR status on mount
   useEffect(() => {
@@ -147,7 +168,9 @@ export default function LiveFeed() {
           <div>
             <h1 className="text-3xl font-bold">Live Camera Feeds</h1>
             <p className="text-gray-400 text-sm mt-1">
-              Real-time LPR monitoring
+              {isSimulated
+                ? "Simulation mode: pick a video on a camera, then Start"
+                : "Real-time LPR monitoring"}
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -163,12 +186,33 @@ export default function LiveFeed() {
               </span>
             </div>
 
+            {/* Confidence filter switch */}
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-400">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={confFilter}
+                onClick={() => setConfFilter((v) => !v)}
+                className={`relative w-10 h-5 rounded-full transition ${
+                  confFilter ? "bg-green-600" : "bg-gray-600"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    confFilter ? "translate-x-5" : ""
+                  }`}
+                ></span>
+              </button>
+              Only &gt;{Math.round(MIN_SHOW_CONFIDENCE * 100)}% confidence
+            </label>
+
             {/* Start All Button */}
             <button
               onClick={startAllCameras}
-              disabled={!isConnected}
+              disabled={!canStartAll}
+              title={isSimulated ? "Disabled in simulation mode: pick a video on each camera" : undefined}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                isConnected
+                canStartAll
                   ? "bg-green-600 hover:bg-green-500 text-white"
                   : "bg-gray-700 text-gray-500 cursor-not-allowed"
               }`}
@@ -197,6 +241,7 @@ export default function LiveFeed() {
                   detection={detections[cam.id]}
                   onStart={startCamera}
                   onStop={stopCamera}
+                  videos={isSimulated ? videos : null}
                 />
               ))
             ) : (

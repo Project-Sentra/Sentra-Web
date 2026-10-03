@@ -34,7 +34,7 @@
  * @param {function} options.onEntryResult - Called with entry confirmation result
  * @param {function} options.onExitResult  - Called with exit confirmation result
  *
- * @returns {Object} { isConnected, cameras, lastDetection, error,
+ * @returns {Object} { isConnected, cameras, mode, videos, lastDetection, error,
  *                     connect, disconnect, startCamera, stopCamera,
  *                     startAllCameras, confirmEntry, confirmExit, sendMessage }
  */
@@ -59,6 +59,8 @@ export default function useWebSocket({
 } = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [cameras, setCameras] = useState([]);
+  const [mode, setMode] = useState(null); // "simulated" | "live"
+  const [videos, setVideos] = useState([]); // simulated-mode video files
   const [lastDetection, setLastDetection] = useState(null);
   const [error, setError] = useState(null);
 
@@ -128,6 +130,12 @@ export default function useWebSocket({
     switch (data.type) {
       case "cameras_list":
         setCameras(data.cameras || []);
+        setMode(data.mode || null);
+        setVideos(data.videos || []);
+        break;
+
+      case "error":
+        console.warn("SentraAI:", data.message);
         break;
 
       case "frame_update":
@@ -192,8 +200,8 @@ export default function useWebSocket({
   }, []);
 
   // Camera control actions
-  const startCamera = useCallback((cameraId) => {
-    return sendMessage({ action: "start_camera", camera_id: cameraId });
+  const startCamera = useCallback((cameraId, video) => {
+    return sendMessage({ action: "start_camera", camera_id: cameraId, video });
   }, [sendMessage]);
 
   const stopCamera = useCallback((cameraId) => {
@@ -235,6 +243,8 @@ export default function useWebSocket({
   return {
     isConnected,
     cameras,
+    mode,
+    videos,
     lastDetection,
     error,
     connect,
