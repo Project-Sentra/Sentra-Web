@@ -6,7 +6,7 @@ Admin endpoints for gates and manual control.
 
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_admin
+from routes_common import require_admin, get_json_body
 
 # ==========================================================================
 # 11. GATES
@@ -29,7 +29,7 @@ def get_gates():
 @require_admin
 def add_gate():
     """POST /api/gates – Add a new gate."""
-    data = request.get_json()
+    data = get_json_body()
     if not all([data.get("name"), data.get("gate_type"), data.get("facility_id")]):
         return (
             jsonify({"message": "name, gate_type, and facility_id are required"}),
@@ -59,9 +59,7 @@ def open_gate(gate_id):
             "event_type": "open",
             "triggered_by": "manual",
             "operator_id": request.db_user["id"],
-            "plate_number": (
-                request.get_json().get("plate_number") if request.get_json() else None
-            ),
+            "plate_number": (get_json_body().get("plate_number")),
         }
     ).execute()
 
