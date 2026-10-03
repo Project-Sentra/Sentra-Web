@@ -33,8 +33,8 @@ def get_notifications():
 @require_auth
 def mark_notification_read(notif_id):
     """PUT /api/notifications/:id/read – Mark one notification as read."""
-    supabase.table("notifications").update({"is_read": True}).eq(
-        "id", notif_id
+    supabase.table("notifications").update({"is_read": True}).eq("id", notif_id).eq(
+        "user_id", request.db_user["id"]
     ).execute()
     return jsonify({"message": "Marked as read"}), 200
 
