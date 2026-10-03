@@ -145,4 +145,6 @@ def test_lpr_exit_records_gate_event(client, mock_supabase, monkeypatch):
     )
 
     assert resp.status_code == 200
-    recorded.assert_called_once_with(1, "exit", "ABC1234", None)  # plates are normalized
+    recorded.assert_called_once_with(
+        1, "exit", "ABC1234", None
+    )  # plates are normalized
