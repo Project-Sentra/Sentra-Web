@@ -5,20 +5,26 @@ System reset and LPR health check.
 """
 
 import httpx
-from flask import request, jsonify
+from flask import jsonify
 from app import app, supabase
-from routes_common import require_admin, LPR_SERVICE_URL
+from routes_common import require_admin, get_json_body, LPR_SERVICE_URL
 
 # ==========================================================================
 # 15. SYSTEM
 # ==========================================================================
 
 
+@app.route("/api/health", methods=["GET"])
+def health():
+    """GET /api/health – Public liveness check (Docker HEALTHCHECK, load balancer)."""
+    return jsonify({"status": "healthy", "service": "sentra-backend"}), 200
+
+
 @app.route("/api/system/reset", methods=["POST"])
 @require_admin
 def reset_system():
     """POST /api/system/reset – Clear all sessions, free all spots. DESTRUCTIVE."""
-    facility_id = request.get_json().get("facility_id") if request.get_json() else None
+    facility_id = get_json_body().get("facility_id")
 
     try:
         if facility_id:

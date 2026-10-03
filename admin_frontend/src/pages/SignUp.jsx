@@ -1,21 +1,19 @@
 /**
  * SignUp.jsx - User Registration Page
  * ======================================
- * Allows new users to create an admin account.
+ * Allows new staff members to create an account.
  *
  * Registration Flow:
  *   1. User enters name, email, password, and confirms password
  *   2. Client validates: all fields filled, passwords match, min length
- *   3. Sends POST /api/signup to Flask backend
+ *   3. Sends POST /api/auth/signup to Flask backend
  *   4. Backend creates user via Supabase Auth (bcrypt-hashed password)
- *   5. On success: redirects to /signin so the user can log in
+ *   5. On success: redirects to /signin with a notice
  *   6. On failure: shows error message (e.g. "User already exists!")
  *
- * Note: The "name" field is captured in the form but NOT sent to the
- * backend (the signup endpoint only uses email + password). This could
- * be extended by adding a "name" field to the users table.
- *
- * Note: Google/Apple sign-up buttons are placeholder UI only.
+ * New accounts are created with role "user". An existing administrator
+ * must grant the admin/operator role (Users page) before the account can
+ * open the dashboard.
  */
 
 import React, { useState } from "react";
@@ -50,12 +48,11 @@ export default function SignUp() {
         email: email,
         password: password,
         full_name: name,
-        role: "admin",
       });
 
       if (response.status === 201) {
-        // Registration successful - redirect to sign in page
-        navigate("/signin");
+        // Registration successful - an admin must still grant dashboard access
+        navigate("/signin?registered=1");
       }
     } catch (err) {
       console.error("Signup Failed:", err);

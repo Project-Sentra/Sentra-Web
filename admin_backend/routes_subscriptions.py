@@ -7,7 +7,12 @@ Endpoints for monthly pass subscriptions.
 from datetime import datetime, timezone, timedelta
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_auth, _create_notification
+from routes_common import (
+    require_auth,
+    get_json_body,
+    is_admin_user,
+    _create_notification,
+)
 
 # ==========================================================================
 # 9. SUBSCRIPTIONS
@@ -23,7 +28,7 @@ def create_subscription():
 
     Body: { "facility_id", "vehicle_id", "plan_id" }
     """
-    data = request.get_json()
+    data = get_json_body()
     facility_id = data.get("facility_id")
     vehicle_id = data.get("vehicle_id")
     plan_id = data.get("plan_id")
@@ -34,11 +39,31 @@ def create_subscription():
             400,
         )
 
-    # Get plan details
+    # The vehicle must belong to the caller
+    vehicle = (
+        supabase.table("vehicles")
+        .select("id, user_id, is_active")
+        .eq("id", vehicle_id)
+        .limit(1)
+        .execute()
+    )
+    if (
+        not vehicle.data
+        or vehicle.data[0]["user_id"] != request.db_user["id"]
+        or vehicle.data[0].get("is_active") is False
+    ):
+        return jsonify({"message": "Vehicle not found for this account"}), 404
+
+    # Get plan details (must be an active monthly plan of THIS facility)
     plan = (
         supabase.table("pricing_plans").select("*").eq("id", plan_id).limit(1).execute()
     )
-    if not plan.data or plan.data[0]["plan_type"] != "monthly":
+    if (
+        not plan.data
+        or plan.data[0]["plan_type"] != "monthly"
+        or str(plan.data[0].get("facility_id")) != str(facility_id)
+        or plan.data[0].get("is_active") is False
+    ):
         return jsonify({"message": "Invalid monthly plan"}), 400
 
     amount = plan.data[0]["rate"]
@@ -110,10 +135,7 @@ def create_subscription():
 @require_auth
 def get_subscriptions():
     """GET /api/subscriptions – Get user's subscriptions (or all for admin)."""
-    if request.args.get("all") == "true" and request.db_user["role"] in (
-        "admin",
-        "operator",
-    ):
+    if request.args.get("all") == "true" and is_admin_user(request.db_user):
         query = supabase.table("subscriptions").select(
             "*, users(email, full_name), vehicles(plate_number), facilities(name), pricing_plans(name, rate)"
         )
@@ -132,8 +154,21 @@ def get_subscriptions():
 @app.route("/api/subscriptions/<int:sub_id>", methods=["PUT"])
 @require_auth
 def update_subscription(sub_id):
-    """PUT /api/subscriptions/:id – Cancel or update auto-renew."""
-    data = request.get_json()
+    """PUT /api/subscriptions/:id – Cancel or update auto-renew (owner or admin)."""
+    sub = (
+        supabase.table("subscriptions")
+        .select("id, user_id")
+        .eq("id", sub_id)
+        .limit(1)
+        .execute()
+    )
+    if not sub.data or (
+        sub.data[0]["user_id"] != request.db_user["id"]
+        and not is_admin_user(request.db_user)
+    ):
+        return jsonify({"message": "Subscription not found"}), 404
+
+    data = get_json_body()
     updates = {}
     if data.get("action") == "cancel":
         updates["status"] = "cancelled"

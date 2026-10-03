@@ -5,9 +5,9 @@ CRUD for parking facilities.
 """
 
 from datetime import datetime, timezone
-from flask import request, jsonify
+from flask import jsonify
 from app import app, supabase
-from routes_common import require_admin, DEFAULT_HOURLY_RATE
+from routes_common import require_admin, get_json_body, DEFAULT_HOURLY_RATE
 
 # ==========================================================================
 # 4. FACILITY MANAGEMENT
@@ -54,7 +54,7 @@ def get_facilities():
 @require_admin
 def create_facility():
     """POST /api/facilities – Create a new parking facility."""
-    data = request.get_json()
+    data = get_json_body()
     if not data.get("name"):
         return jsonify({"message": "Facility name is required"}), 400
 
@@ -127,7 +127,7 @@ def get_facility(facility_id):
 @require_admin
 def update_facility(facility_id):
     """PUT /api/facilities/:id – Update facility details."""
-    data = request.get_json()
+    data = get_json_body()
     updates = {}
     for field in [
         "name",

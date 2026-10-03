@@ -40,9 +40,16 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { getAccessToken } from "../services/api";
 
 // WebSocket URL - can be overridden via VITE_WS_URL environment variable
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://127.0.0.1:5001/api/ws";
+
+// Browsers can't set headers on WebSockets, so the admin JWT goes in ?token=
+function buildWsUrl(token) {
+  const separator = WS_URL.includes("?") ? "&" : "?";
+  return `${WS_URL}${separator}token=${encodeURIComponent(token)}`;
+}
 export default function useWebSocket({
   autoConnect = true,
   onFrame,
@@ -65,8 +72,14 @@ export default function useWebSocket({
       return;
     }
 
+    const token = getAccessToken();
+    if (!token) {
+      setError("Not signed in");
+      return;
+    }
+
     try {
-      const ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(buildWsUrl(token));
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -146,6 +159,12 @@ export default function useWebSocket({
         setCameras((prev) =>
           prev.map((cam) => ({ ...cam, status: "running" }))
         );
+        break;
+
+      case "auth_error":
+        // Login expired mid-session; stop reconnecting and surface the error
+        reconnectAttemptsRef.current = maxReconnectAttempts;
+        setError(data.message || "Session expired. Please sign in again.");
         break;
 
       default:

@@ -5,31 +5,45 @@
  *
  * Auth Flow:
  *   1. User enters email and password
- *   2. Sends POST /api/login to Flask backend
- *   3. On success: stores JWT tokens + user info in localStorage, redirects to /
- *   4. On failure: displays error message from the backend
+ *   2. Sends POST /api/auth/login to Flask backend
+ *   3. Only admin/operator accounts may use the dashboard; others are refused
+ *   4. On success: stores JWT tokens + user info in localStorage and returns
+ *      to the page the user originally requested (or /admin)
+ *   5. On failure: displays error message from the backend
  *
  * Stored in localStorage:
  *   - accessToken   (JWT for Authorization header)
  *   - refreshToken  (for future token renewal)
  *   - userEmail, userId, userRole
  *
- * Note: Google/Apple sign-in buttons are placeholder UI only (not wired up).
+ * Note: The Apple sign-in button is placeholder UI only (not wired up).
  */
 
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { supabase } from "../services/supabase";
 
 import LogoMain from "../assets/logo_main.png";
 import LogoNoText from "../assets/logo_notext.png";
 
+const ADMIN_ROLES = ["admin", "operator"];
+
+const NOTICES = {
+  registered: "Account created. An administrator must grant you dashboard access before you can sign in.",
+  expired: "Your session has expired. Please sign in again.",
+  denied: "This account does not have dashboard access. Ask an administrator to grant the admin or operator role.",
+};
+
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const notice = Object.keys(NOTICES).find((key) => searchParams.get(key));
+  const redirectTo = location.state?.from || "/admin";
 
   /** Handle the sign-in form submission */
   const handleLogin = async () => {
@@ -43,6 +57,11 @@ export default function SignIn() {
       });
 
       if (response.status === 200) {
+        if (!ADMIN_ROLES.includes(response.data.user.role)) {
+          setError(NOTICES.denied);
+          return;
+        }
+
         // Store authentication data in localStorage for the api.js interceptor
         localStorage.setItem("accessToken", response.data.access_token);
         localStorage.setItem("refreshToken", response.data.refresh_token);
@@ -52,8 +71,8 @@ export default function SignIn() {
         localStorage.setItem("userRole", response.data.user.role);
         localStorage.setItem("userFullName", response.data.user.full_name || "");
 
-        // Redirect to the home page (which shows facilities)
-        navigate("/");
+        // Return to the page that required login (default: facility list)
+        navigate(redirectTo, { replace: true });
       }
     } catch (err) {
       console.error("Login Failed:", err);
@@ -112,6 +131,13 @@ export default function SignIn() {
                   SIGN UP
                 </Link>
               </div>
+
+              {/* Notice from redirect (signup, expired session, no access) */}
+              {notice && !error && (
+                <div className="w-full bg-yellow-500/10 border border-yellow-500 text-yellow-300 text-sm p-2 rounded text-center">
+                  {NOTICES[notice]}
+                </div>
+              )}
 
               {/* Error Message Display Area */}
               {error && (

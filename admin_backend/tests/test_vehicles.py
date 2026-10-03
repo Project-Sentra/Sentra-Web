@@ -56,6 +56,25 @@ def test_register_vehicle_missing_plate(client, mock_supabase):
     assert b"plate_number is required" in resp.data
 
 
+SERVICE_HEADERS = {"X-Service-Key": "test-service-key"}
+
+
+def test_lookup_vehicle_requires_auth(client):
+    """Plate lookup exposes owner details, so it must not be public."""
+    resp = client.get("/api/vehicles/lookup/WP-UNKNOWN")
+    assert resp.status_code == 401
+
+
+def test_lookup_vehicle_wrong_service_key(client):
+    """A wrong service key must be rejected."""
+    with patch("routes_common.SERVICE_API_KEY", "test-service-key"):
+        resp = client.get(
+            "/api/vehicles/lookup/WP-UNKNOWN", headers={"X-Service-Key": "wrong"}
+        )
+    assert resp.status_code == 401
+
+
+@patch("routes_common.SERVICE_API_KEY", "test-service-key")
 def test_lookup_vehicle_not_registered(client, mock_supabase):
     """GET /api/vehicles/lookup/:plate for unregistered plate."""
     table_mock = MagicMock()
@@ -65,12 +84,13 @@ def test_lookup_vehicle_not_registered(client, mock_supabase):
     table_mock.execute.return_value = MagicMock(data=[])
     mock_supabase.table.return_value = table_mock
 
-    resp = client.get("/api/vehicles/lookup/WP-UNKNOWN")
+    resp = client.get("/api/vehicles/lookup/WP-UNKNOWN", headers=SERVICE_HEADERS)
     assert resp.status_code == 200
     data = json.loads(resp.data)
     assert data["registered"] is False
 
 
+@patch("routes_common.SERVICE_API_KEY", "test-service-key")
 def test_lookup_vehicle_registered(client, mock_supabase):
     """GET /api/vehicles/lookup/:plate for registered plate."""
     vehicle_data = {
@@ -95,7 +115,7 @@ def test_lookup_vehicle_registered(client, mock_supabase):
 
     mock_supabase.table.side_effect = table_side_effect
 
-    resp = client.get("/api/vehicles/lookup/WP%20CAB-1234")
+    resp = client.get("/api/vehicles/lookup/WP%20CAB-1234", headers=SERVICE_HEADERS)
     assert resp.status_code == 200
     data = json.loads(resp.data)
     assert data["registered"] is True

@@ -22,6 +22,7 @@ import Home from './pages/Home'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import AuthCallback from './pages/AuthCallback'
+import RequireAdmin from './components/RequireAdmin'
 import Facilities from './pages/admin/Facilities'
 import Dashboard from './pages/admin/Dashboard'
 import InOut from './pages/admin/InOut'
@@ -42,16 +43,18 @@ export default function App() {
         <Route path='signup' element={<SignUp/>}/>
         <Route path='auth/callback' element={<AuthCallback/>}/>
 
-        {/* Admin routes - require authentication (enforced per-page) */}
-        <Route path='admin' element={<Facilities/>} />
-        <Route path='admin/wallet' element={<Wallet/>} />
-        <Route path='admin/users' element={<Users/>} />
-        <Route path='admin/vehicles' element={<Vehicles/>} />
-        <Route path='admin/reservations' element={<Reservations/>} />
-        <Route path='admin/:facilityId' element={<Dashboard/>} />
-        <Route path='admin/:facilityId/slots' element={<SlotManagement/>} />
-        <Route path='admin/:facilityId/inout' element={<InOut/>} />
-        <Route path='admin/:facilityId/live' element={<LiveFeed/>} />
+        {/* Admin routes - require an admin/operator login (RequireAdmin) */}
+        <Route element={<RequireAdmin/>}>
+          <Route path='admin' element={<Facilities/>} />
+          <Route path='admin/wallet' element={<Wallet/>} />
+          <Route path='admin/users' element={<Users/>} />
+          <Route path='admin/vehicles' element={<Vehicles/>} />
+          <Route path='admin/reservations' element={<Reservations/>} />
+          <Route path='admin/:facilityId' element={<Dashboard/>} />
+          <Route path='admin/:facilityId/slots' element={<SlotManagement/>} />
+          <Route path='admin/:facilityId/inout' element={<InOut/>} />
+          <Route path='admin/:facilityId/live' element={<LiveFeed/>} />
+        </Route>
       </Routes>
     </div>
   )

@@ -60,7 +60,9 @@ export default function SlotManagement() {
       try {
         const data = await lprService.getFacility(fid);
         if (data.facility) setFacilityName(data.facility.name);
-      } catch {}
+      } catch {
+        // Facility name is cosmetic; keep the default title on failure
+      }
     })();
   }, [fid]);
 

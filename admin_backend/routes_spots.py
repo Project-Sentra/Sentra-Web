@@ -9,7 +9,7 @@ initialise spots in bulk, and adjust the total slot count.
 from datetime import datetime, timezone
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_admin
+from routes_common import require_admin, get_json_body
 
 # ==========================================================================
 # 5. PARKING SPOTS – Full CRUD
@@ -44,7 +44,7 @@ def create_spot(facility_id):
     Body: { "spot_name": "B-05", "spot_type"?: "regular", "floor_id"?: 1 }
       or: { "spots": [ { "spot_name": "B-05", ... }, ... ] }
     """
-    data = request.get_json() or {}
+    data = get_json_body()
 
     # Support batch or single creation
     spot_list = data.get("spots", [data] if "spot_name" in data else [])
@@ -92,7 +92,7 @@ def init_spots(facility_id):
 
     Body: { "count": 32, "prefix": "A", "floor_id"?: 1, "spot_type"?: "regular" }
     """
-    data = request.get_json() or {}
+    data = get_json_body()
     count = data.get("count", 32)
     prefix = data.get("prefix", "A")
     floor_id = data.get("floor_id")
@@ -136,11 +136,7 @@ def init_spots(facility_id):
 def get_spot(spot_id):
     """GET /api/spots/:id – Get a single spot by ID."""
     result = (
-        supabase.table("parking_spots")
-        .select("*")
-        .eq("id", spot_id)
-        .limit(1)
-        .execute()
+        supabase.table("parking_spots").select("*").eq("id", spot_id).limit(1).execute()
     )
     if not result.data:
         return jsonify({"message": "Spot not found"}), 404
@@ -156,7 +152,7 @@ def update_spot(spot_id):
     Updateable fields: spot_name, spot_type, is_active, is_occupied,
     is_reserved, floor_id.
     """
-    data = request.get_json()
+    data = get_json_body()
     updates = {}
     allowed = [
         "spot_name",
@@ -201,11 +197,7 @@ def delete_spot(spot_id):
     """
     # Fetch the spot
     spot_result = (
-        supabase.table("parking_spots")
-        .select("*")
-        .eq("id", spot_id)
-        .limit(1)
-        .execute()
+        supabase.table("parking_spots").select("*").eq("id", spot_id).limit(1).execute()
     )
     if not spot_result.data:
         return jsonify({"message": "Spot not found"}), 404
@@ -215,9 +207,7 @@ def delete_spot(spot_id):
     # Block deletion of occupied spots
     if spot.get("is_occupied"):
         return (
-            jsonify(
-                {"message": "Cannot delete an occupied spot. Free it first."}
-            ),
+            jsonify({"message": "Cannot delete an occupied spot. Free it first."}),
             409,
         )
 
@@ -249,9 +239,7 @@ def delete_spot(spot_id):
     return jsonify({"message": "Spot deleted"}), 200
 
 
-@app.route(
-    "/api/facilities/<int:facility_id>/spots/adjust-count", methods=["PUT"]
-)
+@app.route("/api/facilities/<int:facility_id>/spots/adjust-count", methods=["PUT"])
 @require_admin
 def adjust_spot_count(facility_id):
     """
@@ -264,7 +252,7 @@ def adjust_spot_count(facility_id):
     If the new total is lower, unused (non-occupied, non-reserved) spots
     are deactivated from the end until the target is reached.
     """
-    data = request.get_json() or {}
+    data = get_json_body()
     new_total = data.get("total")
     if new_total is None or not isinstance(new_total, int) or new_total < 0:
         return jsonify({"message": "A valid 'total' (integer >= 0) is required"}), 400
@@ -319,9 +307,9 @@ def adjust_spot_count(facility_id):
         for s in removable:
             if deactivated >= to_remove:
                 break
-            supabase.table("parking_spots").update(
-                {"is_active": False}
-            ).eq("id", s["id"]).execute()
+            supabase.table("parking_spots").update({"is_active": False}).eq(
+                "id", s["id"]
+            ).execute()
             deactivated += 1
 
         if deactivated < to_remove:

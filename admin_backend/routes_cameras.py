@@ -6,7 +6,7 @@ Admin endpoints for camera configuration.
 
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_admin
+from routes_common import require_admin, get_json_body
 
 # ==========================================================================
 # 10. CAMERAS (Admin)
@@ -29,7 +29,7 @@ def get_cameras():
 @require_admin
 def add_camera():
     """POST /api/cameras – Add a new camera."""
-    data = request.get_json()
+    data = get_json_body()
     if not all(
         [
             data.get("camera_id"),
