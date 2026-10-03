@@ -30,6 +30,7 @@ import routes_detections  # noqa: F401
 # Notifications + analytics
 import routes_notifications  # noqa: F401
 import routes_dashboard  # noqa: F401
+import routes_reports  # noqa: F401
 
 # System + compat
 import routes_system  # noqa: F401

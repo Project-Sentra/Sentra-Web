@@ -63,6 +63,7 @@ _route_modules = [
     "routes_detections",
     "routes_notifications",
     "routes_dashboard",
+    "routes_reports",
     "routes_system",
     "routes_compat",
 ]
