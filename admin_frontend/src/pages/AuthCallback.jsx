@@ -15,9 +15,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
-import api from "../services/api";
+import api, { clearSession } from "../services/api";
 
 import LogoNoText from "../assets/logo_notext.png";
+
+const ADMIN_ROLES = ["admin", "operator"];
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -25,6 +27,18 @@ export default function AuthCallback() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let finished = false; // stops the timeout from firing after a successful login
+    let timeoutId;
+
+    const fail = (message) => {
+      finished = true;
+      clearTimeout(timeoutId);
+      clearSession();
+      supabase.auth.signOut().catch(() => {});
+      setError(message);
+      setTimeout(() => navigate("/signin"), 3000);
+    };
+
     const handleCallback = async () => {
       try {
         // Supabase JS automatically picks up the tokens from the URL hash
@@ -49,10 +63,9 @@ export default function AuthCallback() {
           });
 
           // Timeout after 10 seconds
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             subscription.unsubscribe();
-            setError("Sign in timed out. Please try again.");
-            setTimeout(() => navigate("/signin"), 3000);
+            if (!finished) fail("Sign in timed out. Please try again.");
           }, 10000);
 
           return;
@@ -61,49 +74,49 @@ export default function AuthCallback() {
         await completeLogin(session);
       } catch (err) {
         console.error("OAuth callback error:", err);
-        setError(err.message || "Failed to complete sign in");
-        setTimeout(() => navigate("/signin"), 3000);
+        fail(err.message || "Failed to complete sign in");
       }
     };
 
     const completeLogin = async (session) => {
+      if (finished) return;
       setStatus("Setting up your account...");
 
-      // Store tokens in localStorage
+      // The api.js interceptor reads the token from localStorage
       localStorage.setItem("accessToken", session.access_token);
       localStorage.setItem("refreshToken", session.refresh_token);
 
+      let user;
       try {
         // Call backend to ensure user record exists in the database
         const response = await api.post("/auth/social-login");
-
-        if (response.data.user) {
-          localStorage.setItem("userEmail", response.data.user.email || "");
-          localStorage.setItem("userId", response.data.user.id || "");
-          localStorage.setItem("userDbId", String(response.data.user.db_id || ""));
-          localStorage.setItem("userRole", response.data.user.role || "user");
-          localStorage.setItem("userFullName", response.data.user.full_name || "");
-        }
-
-        navigate("/");
+        user = response.data.user;
       } catch (backendErr) {
         console.error("Backend sync error:", backendErr);
-        // Even if backend sync fails, the user is authenticated with Supabase
-        // Store basic info from the session
-        localStorage.setItem("userEmail", session.user?.email || "");
-        localStorage.setItem("userId", session.user?.id || "");
-        localStorage.setItem("userRole", "admin");
-        localStorage.setItem(
-          "userFullName",
-          session.user?.user_metadata?.full_name ||
-            session.user?.user_metadata?.name ||
-            ""
-        );
-        navigate("/");
+        // Never assume a role locally: without the backend we can't verify access
+        fail(backendErr.response?.data?.message || "Could not reach the server. Please try again.");
+        return;
       }
+
+      if (!user || !ADMIN_ROLES.includes(user.role)) {
+        fail(
+          "This account does not have dashboard access. Ask an administrator to grant the admin or operator role.",
+        );
+        return;
+      }
+
+      finished = true;
+      clearTimeout(timeoutId);
+      localStorage.setItem("userEmail", user.email || "");
+      localStorage.setItem("userId", user.id || "");
+      localStorage.setItem("userDbId", String(user.db_id || ""));
+      localStorage.setItem("userRole", user.role);
+      localStorage.setItem("userFullName", user.full_name || "");
+      navigate("/admin", { replace: true });
     };
 
     handleCallback();
+    return () => clearTimeout(timeoutId);
   }, [navigate]);
 
   return (
