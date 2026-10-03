@@ -1,66 +1,94 @@
 /**
- * api.js - Authenticated Axios HTTP Client
- * ==========================================
- * Pre-configured Axios instance for making authenticated API calls
- * to the Flask backend (default: http://127.0.0.1:5000/api).
+ * api.js - Authenticated Axios HTTP Clients + session helpers
+ * ============================================================
+ * Two pre-configured Axios instances that attach the admin JWT
+ * (stored at login) to every request:
  *
- * Features:
- *   - Automatically attaches the JWT access token from localStorage
- *     to every outgoing request via the Authorization header.
- *   - Logs 401 errors when the token is invalid or expired.
- *   - Base URL can be overridden via the VITE_API_URL env variable.
+ *   api     → Flask backend   (VITE_API_URL, default http://127.0.0.1:5000/api)
+ *   lprApi  → SentraAI service (VITE_LPR_URL, default http://127.0.0.1:5001/api)
+ *
+ * SentraAI does not issue its own tokens; it verifies the same JWT with
+ * the backend, so one login works for both services.
+ *
+ * On a 401 from either service (expired/invalid token) the session is
+ * cleared and the browser is sent to /signin.
  *
  * Usage in components:
  *   import api from '../services/api';
- *   const { data } = await api.get('/spots');        // GET /api/spots
- *   await api.post('/vehicle/entry', { plate_number: 'ABC-1234' });
- *
- * All protected backend endpoints require this client (or manually
- * setting the Authorization header). Use raw `axios` only for
- * public/external endpoints (like the SentraAI LPR service).
+ *   const { data } = await api.get('/facilities');   // GET /api/facilities
  */
 
 import axios from 'axios';
 
-// Create a dedicated Axios instance with the backend base URL
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api',
-  timeout: 10000, // 10 second timeout
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
+export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
+export const LPR_URL = import.meta.env.VITE_LPR_URL || 'http://127.0.0.1:5001/api';
 
-// ── Request Interceptor ──────────────────────────────────────────────
-// Attach the JWT token (stored at login) to every outgoing request.
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken');
+const ADMIN_ROLES = ['admin', 'operator'];
+
+// ── Session helpers ──────────────────────────────────────────────────
+
+export function getAccessToken() {
+  return localStorage.getItem('accessToken');
+}
+
+/** True if a token is stored and the stored role is admin/operator. */
+export function isAdminSession() {
+  return Boolean(getAccessToken()) && ADMIN_ROLES.includes(localStorage.getItem('userRole'));
+}
+
+export function clearSession() {
+  [
+    'accessToken',
+    'refreshToken',
+    'userEmail',
+    'userId',
+    'userDbId',
+    'userRole',
+    'userFullName',
+  ].forEach((key) => localStorage.removeItem(key));
+}
+
+// ── Clients ──────────────────────────────────────────────────────────
+
+function createClient(baseURL) {
+  const client = axios.create({
+    baseURL,
+    timeout: 10000, // 10 second timeout
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  // Attach the JWT (stored at login) to every outgoing request.
+  client.interceptors.request.use((config) => {
+    const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+  });
 
-// ── Response Interceptor ─────────────────────────────────────────────
-// Handle expired/invalid tokens globally.
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      // Token expired or invalid - log it.
-      // The SignIn page handles full logout; individual pages can
-      // redirect to /signin when they catch a 401 error.
-      console.error('Authentication error:', error.response.data);
-    }
-    return Promise.reject(error);
-  }
-);
+  // Expired/invalid token → clear the session and go to sign in.
+  // Login/signup requests are excluded so their error messages can be shown.
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      const url = error.config?.url || '';
+      const isAuthCall = url.includes('/auth/login') || url.includes('/auth/signup');
+      if (error.response?.status === 401 && !isAuthCall && getAccessToken()) {
+        clearSession();
+        if (typeof window !== 'undefined' && window.location.pathname !== '/signin') {
+          window.location.assign('/signin?expired=1');
+        }
+      }
+      return Promise.reject(error);
+    },
+  );
+
+  return client;
+}
+
+export const api = createClient(API_URL);
+export const lprApi = createClient(LPR_URL);
 
 export default api;
