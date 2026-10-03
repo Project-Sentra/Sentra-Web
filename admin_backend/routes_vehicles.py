@@ -61,7 +61,13 @@ def register_vehicle():
     if by_admin:
         if not is_admin_user(request.db_user):
             return jsonify({"message": "Admin access required"}), 403
-        owner = supabase.table("users").select("id").eq("id", data["user_id"]).limit(1).execute()
+        owner = (
+            supabase.table("users")
+            .select("id")
+            .eq("id", data["user_id"])
+            .limit(1)
+            .execute()
+        )
         if not owner.data:
             return jsonify({"message": "Owner user not found"}), 404
         owner_id = owner.data[0]["id"]
@@ -75,7 +81,11 @@ def register_vehicle():
         .execute()
     )
     if existing.data:
-        hint = "" if existing.data[0]["is_active"] else " (inactive — reactivate it instead)"
+        hint = (
+            ""
+            if existing.data[0]["is_active"]
+            else " (inactive — reactivate it instead)"
+        )
         return jsonify({"message": f"Vehicle {plate} is already registered{hint}"}), 409
 
     vehicle = {

@@ -7,7 +7,12 @@ Endpoints for LPR detection logs.
 from datetime import datetime, timezone
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_admin, require_service_or_admin, get_json_body, normalize_plate
+from routes_common import (
+    require_admin,
+    require_service_or_admin,
+    get_json_body,
+    normalize_plate,
+)
 
 # ==========================================================================
 # 12. DETECTION LOGS
