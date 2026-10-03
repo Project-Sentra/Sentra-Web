@@ -7,7 +7,7 @@ Endpoints for LPR detection logs.
 from datetime import datetime, timezone
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_admin
+from routes_common import require_admin, require_service_or_admin, get_json_body
 
 # ==========================================================================
 # 12. DETECTION LOGS
@@ -18,7 +18,7 @@ from routes_common import require_admin
 @require_admin
 def get_detections():
     """GET /api/detections – Get LPR detection logs."""
-    limit = request.args.get("limit", 50, type=int)
+    limit = min(max(request.args.get("limit", 50, type=int), 1), 500)
     facility_id = request.args.get("facility_id", type=int)
 
     query = (
@@ -34,18 +34,21 @@ def get_detections():
 
 
 @app.route("/api/detections", methods=["POST"])
+@require_service_or_admin
 def add_detection():
+    """POST /api/detections – SentraAI service key or admin JWT required."""
+    return process_add_detection(get_json_body())
+
+
+def process_add_detection(data):
     """
-    POST /api/detections
     Log a plate detection event from the LPR service.
-    PUBLIC endpoint (no auth) for the AI service.
 
     Body: { "camera_id", "facility_id", "plate_number", "confidence",
             "vehicle_class"?, "image_url"? }
 
     Auto-checks if the plate is registered and flags it.
     """
-    data = request.get_json()
     camera_id = data.get("camera_id")
     plate = data.get("plate_number")
 
@@ -94,7 +97,7 @@ def add_detection():
 @require_admin
 def update_detection_action(log_id):
     """PATCH /api/detections/:id/action – Approve/reject a detection."""
-    data = request.get_json()
+    data = get_json_body()
     action = data.get("action")
     if action not in ("entry", "exit", "ignored", "gate_opened"):
         return jsonify({"message": "Invalid action"}), 400

@@ -8,7 +8,14 @@ from datetime import datetime, timezone
 from math import ceil
 from flask import request, jsonify
 from app import app, supabase
-from routes_common import require_auth, DEFAULT_HOURLY_RATE, _create_notification
+from routes_common import (
+    require_auth,
+    require_service_or_admin,
+    get_json_body,
+    is_admin_user,
+    DEFAULT_HOURLY_RATE,
+    _create_notification,
+)
 
 # ==========================================================================
 # 7. PARKING SESSIONS (Entry / Exit)
@@ -16,9 +23,14 @@ from routes_common import require_auth, DEFAULT_HOURLY_RATE, _create_notificatio
 
 
 @app.route("/api/sessions/entry", methods=["POST"])
+@require_service_or_admin
 def vehicle_entry():
+    """POST /api/sessions/entry – SentraAI service key or admin JWT required."""
+    return process_vehicle_entry(get_json_body())
+
+
+def process_vehicle_entry(data):
     """
-    POST /api/sessions/entry
     Register a vehicle entering a facility.
 
     Body: { "plate_number", "facility_id", "entry_method"?: "lpr"|"manual"|"qr_code" }
@@ -38,9 +50,8 @@ def vehicle_entry():
         Response instructs kiosk / display to show QR code for registration.
         Once registered, vehicle follows Scenario 2 on next attempt.
 
-    This endpoint is PUBLIC so the LPR service can call it.
+    Called by the SentraAI service (X-Service-Key) or an operator (admin JWT).
     """
-    data = request.get_json()
     plate = data.get("plate_number")
     facility_id = data.get("facility_id")
     entry_method = data.get("entry_method", "lpr")
@@ -263,9 +274,14 @@ def vehicle_entry():
 
 
 @app.route("/api/sessions/exit", methods=["POST"])
+@require_service_or_admin
 def vehicle_exit():
+    """POST /api/sessions/exit – SentraAI service key or admin JWT required."""
+    return process_vehicle_exit(get_json_body())
+
+
+def process_vehicle_exit(data):
     """
-    POST /api/sessions/exit
     Process a vehicle exiting a facility.
 
     Body: { "plate_number", "payment_method"?: "wallet"|"cash"|"card" }
@@ -277,7 +293,6 @@ def vehicle_exit():
       4. Process payment (wallet auto-deduct, or mark as pending)
       5. Close session, notify user
     """
-    data = request.get_json() or {}
     plate = data.get("plate_number")
     payment_method = data.get("payment_method", "wallet")
 
@@ -439,14 +454,11 @@ def get_sessions():
     - Users: their sessions only
     - Admin: all sessions (with ?all=true)
     """
-    limit = request.args.get("limit", 50, type=int)
+    limit = min(max(request.args.get("limit", 50, type=int), 1), 200)
     facility_id = request.args.get("facility_id", type=int)
     active_only = request.args.get("active") == "true"
 
-    if request.args.get("all") == "true" and request.db_user["role"] in (
-        "admin",
-        "operator",
-    ):
+    if request.args.get("all") == "true" and is_admin_user(request.db_user):
         query = supabase.table("parking_sessions").select("*")
     elif request.db_user.get("id"):
         # Get user's vehicle IDs
