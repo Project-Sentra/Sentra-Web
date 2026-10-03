@@ -6,7 +6,7 @@
  *   - Back arrow to return to facility list
  *   - Current admin user name (from localStorage)
  *   - Facility name (passed via prop)
- *   - Navigation links: Dashboard, In & Out, Live feed, Gates, Users, Vehicles, Reservations
+ *   - Navigation links: Dashboard, In & Out, Live feed, Gates, Reports, Users, Vehicles, Reservations
  *   - Logout button at the bottom
  *
  * The sidebar builds link paths using the :facilityId route param.
@@ -68,6 +68,9 @@ export default function Sidebar({ facilityName = "Parking Facility" }) {
           </NavLink>
           <NavLink to={`${linkBase}/gates`} className={linkClass}>
             Gates
+          </NavLink>
+          <NavLink to={`${linkBase}/reports`} className={linkClass}>
+            Reports
           </NavLink>
           <NavLink to="/admin/wallet" className={linkClass}>
             Payments

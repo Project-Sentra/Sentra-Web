@@ -405,6 +405,32 @@ const lprService = {
     return r.data;
   },
 
+  // ==========================================
+  // Reports (Admin)
+  // ==========================================
+
+  /** Revenue per day, entries per hour, heatmap and peak hour/day. */
+  async getReportSummary(facilityId, days = 30) {
+    const r = await api.get("/reports/summary", { params: { facility_id: facilityId, days } });
+    return r.data;
+  },
+
+  /** Download the sessions of the last `days` days as a CSV file. */
+  async downloadSessionsCsv(facilityId, days = 30) {
+    const r = await api.get("/reports/sessions.csv", {
+      params: { facility_id: facilityId, days },
+      responseType: "blob",
+    });
+    const url = URL.createObjectURL(r.data);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `sentra-sessions-${days}d.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
+
   /** Recent gate events (manual and automatic LPR), newest first. */
   async getGateEvents({ facilityId, gateId, limit = 50 } = {}) {
     const params = { limit };

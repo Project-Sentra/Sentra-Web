@@ -15,9 +15,10 @@
  *   /admin/:facilityId/inout       -> Entry/exit logs for a facility
  *   /admin/:facilityId/live        -> Live camera feeds for a facility
  *   /admin/:facilityId/gates       -> Barrier control and gate activity
+ *   /admin/:facilityId/reports     -> Revenue and usage reports
  */
 
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
 import SignIn from './pages/SignIn'
@@ -34,6 +35,9 @@ import Reservations from './pages/admin/Reservations'
 import SlotManagement from './pages/admin/SlotManagement'
 import Wallet from './pages/admin/Wallet'
 import Gates from './pages/admin/Gates'
+
+// Charts are heavy; load the Reports page only when it is opened
+const Reports = lazy(() => import('./pages/admin/Reports'))
 
 export default function App() {
   return (
@@ -57,6 +61,10 @@ export default function App() {
           <Route path='admin/:facilityId/inout' element={<InOut/>} />
           <Route path='admin/:facilityId/live' element={<LiveFeed/>} />
           <Route path='admin/:facilityId/gates' element={<Gates/>} />
+          <Route
+            path='admin/:facilityId/reports'
+            element={<Suspense fallback={<div className='p-8 text-gray-500'>Loading reports…</div>}><Reports/></Suspense>}
+          />
         </Route>
       </Routes>
     </div>
