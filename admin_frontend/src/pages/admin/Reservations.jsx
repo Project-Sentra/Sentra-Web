@@ -116,7 +116,7 @@ export default function Reservations() {
       await fetchReservations();
       setSelected({ ...selected, notes: editNotes });
     } catch (err) {
-      alert("Failed to save notes");
+      alert(err.response?.data?.message || "Failed to save notes");
     } finally {
       setActionLoading(false);
     }
@@ -147,7 +147,7 @@ export default function Reservations() {
       setSelected({ ...selected, ...updated });
       setShowEditModal(false);
     } catch (err) {
-      alert("Failed to update reservation");
+      alert(err.response?.data?.message || "Failed to update reservation");
     } finally {
       setActionLoading(false);
     }
