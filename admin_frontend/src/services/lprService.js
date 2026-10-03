@@ -10,7 +10,8 @@
  *
  * 2. LPR_API (port 5001) - External SentraAI service
  *    Runs the AI model for real-time plate detection from camera feeds.
- *    Uses raw `axios` because it has no JWT auth (separate service).
+ *    Uses the `lprApi` instance, which sends the same admin JWT; SentraAI
+ *    verifies it with the backend before allowing camera/gate actions.
  *
  * Endpoint Groups:
  *   - SentraAI (port 5001): health, cameras, detection
@@ -29,14 +30,7 @@
  *   - System: reset, LPR status
  */
 
-import axios from "axios";
-import api from "./api";
-
-// Flask backend (this project)
-const PARKING_API = "http://127.0.0.1:5000";
-
-// External SentraAI LPR service (separate repo/process)
-const LPR_API = "http://127.0.0.1:5001";
+import { api, lprApi } from "./api";
 
 const lprService = {
   // ==========================================
@@ -47,7 +41,7 @@ const lprService = {
   /** Check if the SentraAI service is running and healthy. */
   async checkLprHealth() {
     try {
-      const response = await axios.get(`${LPR_API}/api/health`, { timeout: 5000 });
+      const response = await lprApi.get("/health", { timeout: 5000 });
       return { connected: true, ...response.data };
     } catch (error) {
       return { connected: false, error: error.message };
@@ -57,7 +51,7 @@ const lprService = {
   /** Get cameras configured in the SentraAI service. */
   async getLprCameras() {
     try {
-      const response = await axios.get(`${LPR_API}/api/cameras`);
+      const response = await lprApi.get("/cameras");
       return response.data;
     } catch (error) {
       console.error("Failed to fetch LPR cameras:", error);
@@ -67,15 +61,15 @@ const lprService = {
 
   /** Start / stop individual or all cameras on the AI service. */
   async startCamera(cameraId) {
-    const r = await axios.post(`${LPR_API}/api/cameras/${cameraId}/start`);
+    const r = await lprApi.post(`/cameras/${cameraId}/start`);
     return r.data;
   },
   async stopCamera(cameraId) {
-    const r = await axios.post(`${LPR_API}/api/cameras/${cameraId}/stop`);
+    const r = await lprApi.post(`/cameras/${cameraId}/stop`);
     return r.data;
   },
   async startAllCameras() {
-    const r = await axios.post(`${LPR_API}/api/cameras/start-all`);
+    const r = await lprApi.post("/cameras/start-all");
     return r.data;
   },
 
@@ -84,7 +78,7 @@ const lprService = {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("return_image", returnImage);
-    const r = await axios.post(`${LPR_API}/api/detect/image`, formData, {
+    const r = await lprApi.post("/detect/image", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return r.data;
@@ -92,11 +86,11 @@ const lprService = {
 
   /** Confirm entry/exit via the AI service. */
   async confirmEntry(plateNumber, cameraId) {
-    const r = await axios.post(`${LPR_API}/api/entry`, { plate_number: plateNumber, camera_id: cameraId });
+    const r = await lprApi.post("/entry", { plate_number: plateNumber, camera_id: cameraId });
     return r.data;
   },
   async confirmExit(plateNumber, cameraId) {
-    const r = await axios.post(`${LPR_API}/api/exit`, { plate_number: plateNumber, camera_id: cameraId });
+    const r = await lprApi.post("/exit", { plate_number: plateNumber, camera_id: cameraId });
     return r.data;
   },
 
@@ -282,9 +276,9 @@ const lprService = {
     return r.data;
   },
 
-  /** Look up a vehicle by plate number (public). */
+  /** Look up a vehicle by plate number (admin only). */
   async lookupVehicle(plateNumber) {
-    const r = await axios.get(`${PARKING_API}/api/vehicles/lookup/${plateNumber}`);
+    const r = await api.get(`/vehicles/lookup/${encodeURIComponent(plateNumber)}`);
     return r.data;
   },
 
@@ -454,12 +448,6 @@ const lprService = {
   /** Confirm wallet top-up after Stripe payment succeeds. */
   async confirmTopup(paymentIntentId) {
     const r = await api.post("/wallet/confirm-topup", { payment_intent_id: paymentIntentId });
-    return r.data;
-  },
-
-  /** Top up wallet (legacy / fallback). */
-  async topupWallet(amount, paymentMethod = "card") {
-    const r = await api.post("/wallet/topup", { amount, payment_method: paymentMethod });
     return r.data;
   },
 
