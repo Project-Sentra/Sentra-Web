@@ -4,10 +4,10 @@ routes_dashboard.py - Dashboard analytics
 Admin analytics endpoints.
 """
 
-from datetime import datetime, timezone
 from flask import request, jsonify
 from app import app, supabase
 from routes_common import require_admin
+from routes_reports import local_day_start
 
 # ==========================================================================
 # 14. DASHBOARD / ANALYTICS (Admin)
@@ -39,9 +39,8 @@ def dashboard_stats():
     available = total_spots - occupied - reserved
 
     # Today's sessions and revenue
-    today_start = (
-        datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
-    )
+    # Midnight in the facility's local time (Sri Lanka is UTC+5:30)
+    today_start = local_day_start().isoformat()
     today_sessions = (
         supabase.table("parking_sessions")
         .select("amount, payment_status")

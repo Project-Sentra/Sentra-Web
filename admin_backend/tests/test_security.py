@@ -400,8 +400,12 @@ def test_social_login_creates_user_role(client, mock_supabase):
     created = {"id": 10, "email": "new@test.com", "role": "user"}
     tables = _mock_tables(mock_supabase, {"users": [], "user_wallets": []})
     tables_users = mock_supabase.table("users")
-    # 1st execute: profile lookup (none); 2nd: insert returns the created row
-    tables_users.execute.side_effect = [MagicMock(data=[]), MagicMock(data=[created])]
+    # profile lookup (none), email lookup (none), insert returns the created row
+    tables_users.execute.side_effect = [
+        MagicMock(data=[]),
+        MagicMock(data=[]),
+        MagicMock(data=[created]),
+    ]
     resp = client.post("/api/auth/social-login", headers=AUTH)
     assert resp.status_code == 201
     assert tables["users"].insert.call_args.args[0]["role"] == "user"

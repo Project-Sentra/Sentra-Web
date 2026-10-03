@@ -16,6 +16,7 @@ from routes_common import (
     DEFAULT_HOURLY_RATE,
     _create_notification,
 )
+from routes_gates import record_lpr_gate_open
 
 # ==========================================================================
 # 7. PARKING SESSIONS (Entry / Exit)
@@ -257,6 +258,7 @@ def process_vehicle_entry(data):
 
     # Gate always opens for registered vehicles
     gate_action = "open"
+    record_lpr_gate_open(facility_id, "entry", plate, vehicle_id)
 
     return (
         jsonify(
@@ -428,6 +430,10 @@ def process_vehicle_exit(data):
                     "duration_minutes": duration_minutes,
                 },
             )
+
+    record_lpr_gate_open(
+        session["facility_id"], "exit", plate, session.get("vehicle_id")
+    )
 
     return (
         jsonify(

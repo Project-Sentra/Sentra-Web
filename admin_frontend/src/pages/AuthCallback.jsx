@@ -40,6 +40,20 @@ export default function AuthCallback() {
     };
 
     const handleCallback = async () => {
+      // Provider errors (cancelled consent, misconfigured provider) come back
+      // as error/error_description in the query string or the hash
+      const query = new URLSearchParams(window.location.search);
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const oauthError = query.get("error") || hash.get("error");
+      if (oauthError) {
+        fail(
+          query.get("error_description") ||
+            hash.get("error_description") ||
+            "Google sign in was cancelled.",
+        );
+        return;
+      }
+
       try {
         // Supabase JS automatically picks up the tokens from the URL hash
         const {
