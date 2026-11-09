@@ -1,142 +1,208 @@
-name: Deploy to EC2 (Free Tier)
+name: Deploy to GCP
+
+# Runs after "CI Pipeline" succeeds on main (or manually).
+#
+#   1. Builds the backend and frontend images and pushes them to Artifact
+#      Registry, tagged with the commit SHA and "latest". Google access is
+#      keyless: Workload Identity Federation exchanges GitHub's OIDC token
+#      for a 1-hour token (Sentra-Infrastructure terraform/gcp/registry.tf).
+#   2. SSHes to the VM, logs it in with that short-lived token, pulls the
+#      images for this exact commit and restarts the two containers.
+#
+# Repository variables (Settings > Secrets and variables > Actions > Variables):
+#   GCP_IMAGE_REGISTRY      terraform output image_registry
+#   GCP_WIF_PROVIDER        terraform output github_wif_provider
+#   GCP_CI_SERVICE_ACCOUNT  terraform output ci_service_account
+#   SENTRA_DOMAIN           public domain the dashboard is served on
+#   VITE_SUPABASE_URL       Supabase project URL (public)
+#   VITE_SUPABASE_ANON_KEY  Supabase anon key (public, shipped to browsers)
+# Repository secrets:
+#   GCP_HOST, GCP_SSH_KEY, GCP_KNOWN_HOSTS   SSH access to the VM
+#
+# Without GCP_IMAGE_REGISTRY the images are built on the VM instead (the
+# previous behaviour), and without GCP_HOST the deploy is skipped.
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
   workflow_dispatch:
 
-permissions:
-  id-token: write
-  contents: read
+concurrency:
+  group: deploy-gcp-web
+  cancel-in-progress: false
 
-env:
-  AWS_REGION: ap-southeast-1
-  PROJECT_NAME: sentra
+permissions:
+  contents: read
+  id-token: write # OIDC token for Workload Identity Federation
 
 jobs:
-  build-and-push:
-    name: Build & Push Images
+  deploy:
+    name: Build, push and deploy backend + frontend
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.set-tag.outputs.tag }}
-
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    env:
+      GCP_HOST: ${{ secrets.GCP_HOST }}
+      REGISTRY: ${{ vars.GCP_IMAGE_REGISTRY }}
+      SENTRA_DOMAIN: ${{ vars.SENTRA_DOMAIN }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
-      - name: Checkout
+      - name: Check configuration
+        id: cfg
+        run: |
+          if [ -z "$GCP_HOST" ]; then
+            echo "::notice::GCP deploy secrets are not set; skipping deployment."
+            echo "ready=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          if [ -n "$REGISTRY" ]; then
+            for v in SENTRA_DOMAIN VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY; do
+              if [ -z "${!v}" ]; then
+                echo "::error::Repository variable $v is required to build the frontend image."
+                exit 1
+              fi
+            done
+            {
+              echo "registry=true"
+              echo "host=${REGISTRY%%/*}"
+              echo "tag=${DEPLOY_SHA::12}"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::GCP_IMAGE_REGISTRY is not set; images will be built on the VM."
+            echo "registry=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── 1. Build and push images ───────────────────────────────────────
+      - name: Checkout the tested commit
+        if: steps.cfg.outputs.registry == 'true'
         uses: actions/checkout@v4
-
-      - name: Set image tag
-        id: set-tag
-        run: echo "tag=$(date +%Y%m%d%H%M%S)-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          ref: ${{ env.DEPLOY_SHA }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Authenticate to Google Cloud (keyless)
+        if: steps.cfg.outputs.registry == 'true'
+        id: gcp
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_lifetime: 3600s
+
+      - name: Log in to Artifact Registry
+        if: steps.cfg.outputs.registry == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.cfg.outputs.host }}
+          username: oauth2accesstoken
+          password: ${{ steps.gcp.outputs.access_token }}
 
       - name: Set up Docker Buildx
+        if: steps.cfg.outputs.registry == 'true'
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Backend
-        uses: docker/build-push-action@v5
+      - name: Build and push backend
+        if: steps.cfg.outputs.registry == 'true'
+        uses: docker/build-push-action@v6
         with:
           context: ./admin_backend
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:${{ steps.set-tag.outputs.tag }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/backend:${{ steps.cfg.outputs.tag }}
+            ${{ env.REGISTRY }}/backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
-      - name: Build and push Frontend
-        uses: docker/build-push-action@v5
+      - name: Build and push frontend
+        if: steps.cfg.outputs.registry == 'true'
+        uses: docker/build-push-action@v6
         with:
           context: ./admin_frontend
           push: true
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:${{ steps.set-tag.outputs.tag }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:latest
           build-args: |
-            VITE_API_URL=/api
-            VITE_WS_URL=/ws
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            VITE_API_URL=https://${{ env.SENTRA_DOMAIN }}/api
+            VITE_LPR_URL=https://${{ env.SENTRA_DOMAIN }}/ai
+            VITE_WS_URL=wss://${{ env.SENTRA_DOMAIN }}/ws
+            VITE_SUPABASE_URL=${{ env.VITE_SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ env.VITE_SUPABASE_ANON_KEY }}
+          tags: |
+            ${{ env.REGISTRY }}/frontend:${{ steps.cfg.outputs.tag }}
+            ${{ env.REGISTRY }}/frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
-  deploy:
-    name: Deploy to EC2
-    runs-on: ubuntu-latest
-    needs: build-and-push
-
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Deploy via SSM
+      # ── 2. Deploy on the VM ────────────────────────────────────────────
+      - name: Set up SSH
+        if: steps.cfg.outputs.ready == 'true'
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["sudo -u sentra /opt/sentra/deploy.sh"]' \
-            --timeout-seconds 300 \
-            --query "Command.CommandId" \
-            --output text)
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.GCP_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
-          echo "Command ID: $COMMAND_ID"
-
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" || true
-
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --query "[Status, StandardOutputContent, StandardErrorContent]"
-
-  smoke-test:
-    name: Smoke Tests
-    runs-on: ubuntu-latest
-    needs: deploy
-
-    steps:
-      - name: Wait for services to start
-        run: sleep 30
-
-      - name: Health check - Nginx
+      - name: Pull images and restart containers
+        if: steps.cfg.outputs.registry == 'true'
+        env:
+          TOKEN: ${{ steps.gcp.outputs.access_token }}
+          TAG: ${{ steps.cfg.outputs.tag }}
         run: |
-          for i in {1..10}; do
-            if curl -sf "https://sentra.theenuka.xyz/health"; then
-              echo "Nginx is healthy"
+          # First input line is the registry token (never on a command line),
+          # the rest is the deploy script run by "bash -s".
+          {
+            printf '%s\n' "$TOKEN"
+            cat <<'EOF'
+          set -euo pipefail
+          echo "$TOKEN" | docker login -u oauth2accesstoken --password-stdin "https://${REGISTRY%%/*}" > /dev/null
+          cd /opt/sentra
+          git -C src/Sentra-Web fetch --quiet origin main
+          git -C src/Sentra-Web checkout --quiet -B main "$DEPLOY_SHA"
+          if ! grep -q "$REGISTRY/backend" docker-compose.yml; then
+            # Images are pushed, but the server still builds locally until
+            # the Ansible playbook switches it to registry mode.
+            echo "::notice::Server not in registry mode yet; building on the VM this time."
+            docker compose up -d --build backend frontend
+            docker image prune -f > /dev/null
+            exit 0
+          fi
+          WEB_TAG=$TAG docker compose pull --quiet backend frontend
+          WEB_TAG=$TAG docker compose up -d --no-build backend frontend
+          docker image prune -f > /dev/null
+          echo "Deployed Sentra-Web $TAG"
+          EOF
+          } | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "sentra@$GCP_HOST" \
+            "read -r TOKEN && export TOKEN REGISTRY=$REGISTRY TAG=$TAG DEPLOY_SHA=$DEPLOY_SHA && bash -s"
+
+      - name: Build on the VM (no registry configured)
+        if: steps.cfg.outputs.ready == 'true' && steps.cfg.outputs.registry != 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "sentra@$GCP_HOST" \
+            "DEPLOY_SHA=$DEPLOY_SHA bash -s" <<'EOF'
+          set -euo pipefail
+          cd /opt/sentra/src/Sentra-Web
+          git fetch --quiet origin main
+          git checkout --quiet -B main "$DEPLOY_SHA"
+          echo "Deploying Sentra-Web $(git log -1 --format='%h %s')"
+          cd /opt/sentra
+          docker compose up -d --build backend frontend
+          docker image prune -f > /dev/null
+          EOF
+
+      - name: Smoke test
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          url="https://${GCP_HOST}.sslip.io"
+          for _ in $(seq 1 30); do
+            if curl -fsS "$url/api/health" > /dev/null && curl -fsS "$url/" > /dev/null; then
+              echo "Backend and dashboard are healthy at $url"
               exit 0
             fi
-            echo "Attempt $i failed, retrying in 10s..."
-            sleep 10
+            sleep 5
           done
-          echo "Nginx health check failed"
+          echo "::error::Health check failed for $url"
           exit 1
-
-      - name: Health check - Frontend
-        run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://sentra.theenuka.xyz/")
-          if [ "$HTTP_CODE" -eq 200 ]; then
-            echo "Frontend is serving (HTTP $HTTP_CODE)"
-          else
-            echo "Frontend returned HTTP $HTTP_CODE"
-            exit 1
-          fi
-
-      - name: Deployment summary
-        if: success()
-        run: |
-          echo "Deployment successful!"
-          echo "URL: https://sentra.theenuka.xyz"
-          echo "Tag: ${{ needs.build-and-push.outputs.image_tag }}"
